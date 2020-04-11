@@ -86,7 +86,8 @@ def IOcallback(msg):
         
         uhat = nominalCtrl() #TODO
     else:
-        xd = state
+        p = state[0:2]
+        dp = np.zeros(2)
     
     # Minimally modify nominal controller with CBF QP
     A = #TODO Create A matrix
