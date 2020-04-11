@@ -10,6 +10,7 @@ from trajectory import circular2D
 
 # Import messages
 from geometry_msgs.msg import Twist
+from gazebo_msgs.msg import ModelStates
 
 ## Publishers
 
@@ -66,6 +67,8 @@ Radii = {
     "box1": 1.5
 }
 
+objectStates = ModelStates()
+
 ## Helper functions
 
 def IOcallback(msg):
@@ -81,10 +84,9 @@ def IOcallback(msg):
         t = 0
 
 
-    # Current state
-    state = #TODO
-
     # Object states
+    currentObjectStates = objectStates
+    state = a
 
 
     # Solve for nominal trajectory tracking controller
@@ -118,6 +120,7 @@ def IOcallback(msg):
 
     pub.publish(vel_msg)
 
+
 def nominalCtrl(state, point, point_deriv):
     # Assumes that all inputs are numpy arrays
     y1 = state[0] + b*cos(state[2])
@@ -143,6 +146,10 @@ def g(x):
     return np.array([[cos(x[3]), 0], [sin(x[3]), 0], [0,1]])
 
 
+def objectCallback(msg):
+    # Updates the global obstacleStates
+    objectStates = msg
+    
 
 
 ## Calls main loop
