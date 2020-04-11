@@ -1,6 +1,6 @@
 # MS-RPA 2020
 
-This repository contains code for the 2020 ROS/Gazebo simulations of the MS-RPA algorithm.
+This repository contains code for the 2020 ROS/Gazebo simulations for swarm of the MS-RPA algorithm.
 
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
 
