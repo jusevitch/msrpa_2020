@@ -1,0 +1,169 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <!-- Start Gazebo with world running in (max) realtime. -->
+  
+  <include file="$(find hector_gazebo_worlds)/launch/test_city.launch"/>
+  <!-- <include file="$(find gazebo_ros)/launch/empty_world.launch" /> -->
+  <!-- <include file="$(find hector_gazebo_worlds)/launch/rolling_landscape_120m.launch"/> -->
+
+  <!-- Spawn Hector drone 1 -->
+  <group ns="quad1">
+    <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch">
+      <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro"/>
+      <arg name="name" value="quad1" />
+      <arg name="tf_prefix" value="quad1" />
+      <arg name="x" value="0.0" />                   
+      <arg name="y" value="-1.0" />
+      <arg name="controllers" value="
+        controller/attitude
+        controller/velocity
+        controller/position
+        "/>
+    </include>
+    <include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
+      <arg name="control_mode" value="position"/>
+    </include>
+    <!-- <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/> -->
+  </group>
+
+  <!-- Spawn Hector drone 2 -->
+  <group ns="quad2">
+    <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
+      <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro"/>
+      <arg name="name" value="quad2" />
+      <arg name="tf_prefix" value="quad2" />
+      <arg name="x" value="0.0" />
+      <arg name="y" value="1.0" />
+      <arg name="controllers" value="
+        controller/attitude
+        controller/velocity
+        controller/position
+        "/>
+    </include>
+    <include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
+      <arg name="control_mode" value="position"/>
+    </include>
+    <!-- <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/> -->
+  </group>
+
+  <!-- Spawn Hector drone 3 -->
+  <group ns="quad3">
+    <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
+      <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro"/>
+      <arg name="name" value="quad3" />
+      <arg name="tf_prefix" value="quad3" />
+      <arg name="x" value="-1.0" />
+      <arg name="y" value="0.0" />
+      <arg name="controllers" value="
+        controller/attitude
+        controller/velocity
+        controller/position
+        "/>
+    </include>
+    <include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
+      <arg name="control_mode" value="position"/>
+    </include>
+    <!-- <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/> -->
+  </group>
+
+  <!-- Spawn Hector drone 4 -->
+  <group ns="quad4">
+    <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
+      <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro"/>
+      <arg name="name" value="quad4" />
+      <arg name="tf_prefix" value="quad4" />
+      <arg name="x" value="1.0" />
+      <arg name="y" value="0.0" />
+      <arg name="controllers" value="
+        controller/attitude
+        controller/velocity
+        controller/position
+        "/>
+    </include>
+    <include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
+      <arg name="control_mode" value="position"/>
+    </include>
+    <!-- <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/> -->
+  </group>
+
+  <!-- Spawning Aion Rover 1 -->
+  <group ns="rover1">
+      <include file="$(find aion_r1_gazebo)/launch/gazebo.launch">
+          <arg name="name" value="rover1" />
+          <arg name="tf_prefix" value="rover1" />
+          <arg name="robot_namespace" value="rover1" />
+          <arg name="x" value="0.0" />
+          <arg name="y" value="0.0" />
+          <arg name="z" value="0.5" /> 
+      </include>
+  </group>
+  <!-- Spawning Aion Rover 2 -->
+  <group ns="rover2">
+      <include file="$(find aion_r1_gazebo)/launch/gazebo.launch">
+          <arg name="name" value="rover2" />
+          <arg name="tf_prefix" value="rover2" />
+          <arg name="robot_namespace" value="rover2" />
+          <arg name="x" value="2.0" />
+          <arg name="y" value="0.0" />
+          <arg name="z" value="0.5" /> 
+      </include>
+  </group>
+  <!-- Spawning Aion Rover 3 -->
+  <group ns="rover3">
+      <include file="$(find aion_r1_gazebo)/launch/gazebo.launch">
+          <arg name="name" value="rover3" />
+          <arg name="tf_prefix" value="rover3" />
+          <arg name="robot_namespace" value="rover3" />
+          <arg name="x" value="1.0" />
+          <arg name="y" value="1.0" />
+          <arg name="z" value="0.5" /> 
+      </include>
+  </group>
+  <!-- Spawning Aion Rover 4 -->
+  <group ns="rover4">
+      <include file="$(find aion_r1_gazebo)/launch/gazebo.launch">
+          <arg name="name" value="rover4" />
+          <arg name="tf_prefix" value="rover4" />
+          <arg name="robot_namespace" value="rover4" />
+          <arg name="x" value="1.0" />
+          <arg name="y" value="-1.0" />
+          <arg name="z" value="0.5" /> 
+      </include>
+  </group>
+  <!-- Spawning Aion Rover 5 -->
+  <group ns="rover5">
+      <include file="$(find aion_r1_gazebo)/launch/gazebo.launch">
+          <arg name="name" value="rover5" />
+          <arg name="tf_prefix" value="rover5" />
+          <arg name="robot_namespace" value="rover5" />
+          <arg name="x" value="-1.0" />
+          <arg name="y" value="1.0" />
+          <arg name="z" value="0.5" /> 
+      </include>
+  </group>
+  <!-- Spawning Aion Rover 6 -->
+  <group ns="rover6">
+      <include file="$(find aion_r1_gazebo)/launch/gazebo.launch">
+          <arg name="name" value="rover6" />
+          <arg name="tf_prefix" value="rover6" />
+          <arg name="robot_namespace" value="rover6" />
+          <arg name="x" value="-1.0" />
+          <arg name="y" value="-1.0" />
+          <arg name="z" value="0.5" /> 
+      </include>
+  </group>
+  <!-- Spawning Aion Rover 7 -->
+  <group ns="rover7">
+      <include file="$(find aion_r1_gazebo)/launch/gazebo.launch">
+          <arg name="name" value="rover7" />
+          <arg name="tf_prefix" value="rover7" />
+          <arg name="robot_namespace" value="rover7" />
+          <arg name="x" value="-2.0" />
+          <arg name="y" value="0.0" />
+          <arg name="z" value="0.5" /> 
+      </include>
+  </group>
+
+</launch>
