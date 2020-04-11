@@ -53,10 +53,17 @@ bu = np.array([vmax, vmax, umax, umax])
 # Trajectory setup
 t0 = np.inf # Initial time
 
-trajectory_type = None
+trajectory_type = "circular" # Types can be None, circular, square, polynomial
 
 traj_func = {
     "circular": circular2D
+}
+
+## Obstacle radii Dictionary
+## Temporary measure. More permanent solution needs to be created, perhaps with rosparam?
+Radii = {
+    "rover1": 1,
+    "box1": 1.5
 }
 
 ## Helper functions
@@ -82,18 +89,22 @@ def IOcallback(msg):
 
     # Solve for nominal trajectory tracking controller
     if trajectory_type is not None:
-        p, dp = traj_func[trajectory_type](#TODO
+        p, dp = traj_func[trajectory_type](t,c=(0,0), R=10, w=0.1)
         
         uhat = nominalCtrl() #TODO
     else:
         p = state[0:2]
         dp = np.zeros(2)
     
+    uhat = nominalCtrl(state, p, dp)
+    
     # Minimally modify nominal controller with CBF QP
+    q = 2*uhat
+    
     A = #TODO Create A matrix
     b = #TODO Create b vector
       
-    results = solve(P=csc_matrix(P), A=csc_matrix(A), u=u)
+    results = solve(P=csc_matrix(P), A=csc_matrix(A), q=q, u=u)
 
     # Set u equal to results if the problem was solved; otherwise set it to zero
     # See https://osqp.org/docs/interfaces/status_values.html#status-values for solver_val values
