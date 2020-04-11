@@ -3,6 +3,7 @@
 import rospy
 import osqp
 import numpy as np
+from numpy import cos, sin
 from scipy.sparse import csc_matrix
 
 from trajectory import circular2D
@@ -31,6 +32,10 @@ def R1_QP_control():
 
 ## Variables setup
 
+# Agent controller parameters
+b = 0.1 # Parameter for Siciliano input / output controller
+k = 1
+
 # Twist message
 vel_msg = Twist()
 
@@ -45,10 +50,14 @@ umax = 1;
 Au = np.array([[1,0],[-1,0],[0,1],[0,-1]])
 bu = np.array([vmax, vmax, umax, umax])
 
-# Initial time
-t0 = np.inf
+# Trajectory setup
+t0 = np.inf # Initial time
 
 trajectory_type = None
+
+traj_func = {
+    "circular": circular2D
+}
 
 ## Helper functions
 
@@ -72,8 +81,12 @@ def IOcallback(msg):
 
 
     # Solve for nominal trajectory tracking controller
-
-    uhat = nominalCtrl() #TODO
+    if trajectory_type is not None:
+        p, dp = traj_func[trajectory_type](#TODO
+        
+        uhat = nominalCtrl() #TODO
+    else:
+        xd = state
     
     # Minimally modify nominal controller with CBF QP
     A = #TODO Create A matrix
@@ -93,9 +106,19 @@ def IOcallback(msg):
 
     pub.publish(vel_msg)
 
-def nominalCtrl(msg):
-    # Assumes that msg is of type [TODO]
-    
+def nominalCtrl(state, point, point_deriv):
+    # Assumes that all inputs are numpy arrays
+    y1 = state[0] + b*cos(state[2])
+    y2 = state[1] + b*sin(state[2])
+
+    u = np.zeros(2)
+    u[0] = point_deriv[0] - k*(point[0] - y1)
+    u[1] = point_deriv[1] - k*(point[1] - y2)
+
+    T = np.array([[cos(state[2]), sin(state[2])],[-sin(state[2]/b), cos(state[2]/b)]])
+    return T.dot(u)
+
+       
 
 
 def h(x,xo,R,Ro):
@@ -105,7 +128,7 @@ def dhdx(x,xo):
     return 2*(x-xo)
 
 def g(x):
-    return np.array([[np.cos(x[3]), 0], [np.sin(x[3]), 0], [0,1]])
+    return np.array([[cos(x[3]), 0], [sin(x[3]), 0], [0,1]])
 
 
 
