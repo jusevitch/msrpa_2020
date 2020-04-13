@@ -13,24 +13,11 @@ from trajectory import circular2D
 from geometry_msgs.msg import Twist
 from gazebo_msgs.msg import ModelStates
 
+
+
 ## Publishers
 
 pub = rospy.Publisher('cmd_vel/input/teleop', Twist, queue_size=1) # Double check to make sure this has correct namespace later
-
-
-## Main function
-
-def R1_QP_control():
-    
-    rospy.init_node('R1_QP_control')
-
-    # Subscribers
-
-    rospy.Subscriber("/gazebo/model_states", objectCallback)
-    rospy.Timer(rospy.Duration(???), IOcallback)
-
-    rospy.spin()
-
 
 
 ## Variables setup
@@ -49,6 +36,9 @@ vel_msg = Twist()
 
 # Objective function weights
 P = csc_matrix(np.identity(3)) 
+
+# Hz for how often input callback is called
+input_Hz = 10
 
 # Input constraints
 vmax = 1;
@@ -76,6 +66,23 @@ Radii = {
 
 objectStates = ModelStates()
 patterns = ['rover', 'quad','obstacle']
+
+
+
+
+## Main function
+
+def R1_QP_control():
+    
+    rospy.init_node('R1_QP_control')
+
+    # Subscribers
+
+    rospy.Subscriber("/gazebo/model_states", objectCallback)
+    rospy.Timer(rospy.Duration(1.0/input_Hz), IOcallback)
+
+    rospy.spin()
+
 
 ## Helper functions
 
