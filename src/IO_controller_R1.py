@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 import osqp
@@ -6,6 +6,7 @@ import numpy as np
 from numpy import cos, sin, arccos
 from scipy.sparse import csc_matrix
 import tf.transformations as trans # For quaternion operations
+import argparse
 
 from trajectory import circular2D
 
@@ -22,8 +23,7 @@ pub = rospy.Publisher('cmd_vel/input/teleop', Twist, queue_size=1) # Double chec
 
 ## Variables setup
 
-rover_number = 0
-rover_name = 'rover' + str(rover_number)
+rover_namespace = 'rover0' 
 
 state = np.zeros(3)
 
@@ -100,7 +100,7 @@ def IOcallback(msg):
 
     # Object states
     currentObjectStates = objectStates
-    state_index = currentObjectStates.name.index(rover_name) # Gets the index of agent state info
+    state_index = currentObjectStates.name.index(rover_namespace) # Gets the index of agent state info
     state[0] = currentObjectStates.pose[state_index].position.x
     state[1] = currentObjectStates.pose[state_index].position.y
     state[2] = determine_theta(currentObjectStates.pose[state_index].orientation)
@@ -123,7 +123,7 @@ def IOcallback(msg):
     
     # TODO: This currently assumes everything has the same safety radius.
     #       Need to create a parameter server which lists the safety radii of all nodes.
-    R = 2 
+    R = 1.5 
 
     A = np.zeros((len(reduced_indices),2))
     b = np.zeros(len(reduced_indices))
@@ -220,10 +220,13 @@ def objectCallback(msg):
 if __name__ == '__main__':
     # Takes inputs from command line
     myargv = rospy.myargv(argv=sys.argv)
-    if len(myargv) > 1:
-        rover_number = myargv[1] # Careful--argument might come in as string
-        rover_name = 'rover' + str(rover_number)
-
+    
+    parser = argparse.ArgumentParser(description='IO_controller_R1 : Node containing the QP controller for R1 Rovers.')
+    parser.add_argument('--rover_namespace', help="The namespace of the rover; i.e. rover0.")
+    parser.parse_args()
+    
+    if args.rover_namespace is not None:
+        rover_namespace = args.rover_namespace
     try:
         R1_QP_control()
     except rospy.ROSInterruptException: pass

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # File containing functions which calculate the position of a point along
 # a time-varying trajectory. 
