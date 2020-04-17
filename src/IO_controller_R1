@@ -1,5 +1,23 @@
 #!/usr/bin/env python
 
+"""
+
+     ____  ___   _____ ______   __          __    
+    / __ \/   | / ___// ____/  / /   ____ _/ /_   
+   / / / / /| | \__ \/ /      / /   / __ `/ __ \  
+  / /_/ / ___ |___/ / /___   / /___/ /_/ / /_/ /  
+ /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
+                                                  
+
+Author: James Usevitch
+
+Description: This file contains the input/output linearization controller for the
+             AION R1 Rover. Obstacle avoidance and input constraint satisfaction
+             is calculated using a control barrier function and QP method.
+
+"""
+
+
 import rospy
 import sys
 import osqp
@@ -28,12 +46,11 @@ from geometry_msgs.msg import Quaternion
 state = np.zeros(3)
 
 # Agent controller parameters
+# Gain tuning may be needed
 b = 0.1 # Parameter for Siciliano input / output controller
-k = 1
-delta = .01 # Parameter for class-K function in QP
-
-# Twist message
-vel_msg = Twist()
+kp = 5
+kd = 1
+delta = 1 # Parameter for class-K function in QP
 
 # Objective function weights
 P = csc_matrix(np.identity(2)) 
@@ -43,11 +60,12 @@ input_Hz = 10
 
 # Input constraints
 vmax = 1;
-umax = 1;
+wmax = 2;
 
 # Infinity norm bounds
 Au = np.array([[1,0],[-1,0],[0,1],[0,-1]])
-bu = np.array([vmax, vmax, umax, umax])
+bu = np.array([vmax, vmax, wmax, wmax])
+
 
 # Trajectory setup
 t0 = np.inf # Initial time
@@ -58,13 +76,8 @@ traj_func = {
     "circular": circular2D
 }
 
-## Obstacle radii Dictionary
-## Temporary measure. More permanent solution needs to be created, perhaps with rosparam?
-Radii = {
-    "rover1": 1,
-    "box1": 1.5
-}
 
+vel_msg = Twist()
 objectStates = ModelStates()
 patterns = ['rover', 'quad','obstacle']
 
@@ -150,6 +163,9 @@ def IOcallback(msg):
         uhat = nominalCtrl_untransformed(state, p, dp)
         print("\nuhat untransformed:")
         print(uhat)
+
+        # Location of the b point for IO controller
+        b_state = state[0:2] + np.array([b*cos(state[2]), b*sin(state[2])])
         
         # Minimally modify nominal controller with CBF QP
         # OSQP assumes the form (1/2)u^T P u + q^T u
@@ -158,11 +174,17 @@ def IOcallback(msg):
         # TODO: This currently assumes everything has the same safety radius.
         #       Need to create a parameter server which lists the safety radii of all nodes.
         R = b + 0.5
-        Ro = 1.5
+        Ro = 1.0
 
 
         # print("\nreduced_indices:")
         # print(reduced_indices)
+
+        # Infinity norm constraint matrix for untransformed input
+        Au_untr = np.array([[cos(state[2]), sin(state[2])],
+                            [-cos(state[2]), -sin(state[2])],
+                            [-sin(state[2])/b, cos(state[2])/b],
+                            [sin(state[2])/b, -cos(state[2])/b]])
 
         if len(reduced_indices) > 0:
             A = np.zeros((len(reduced_indices),2))
@@ -172,23 +194,26 @@ def IOcallback(msg):
                 idx = reduced_indices[i]
                 obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y])
 
-                A[i,:] = dhdx(state,obstacle_state).dot(g(state))
-                b[i] = delta*h(state,obstacle_state,R,R)
+                # A[i,:] = dhdx(state,obstacle_state).dot(g(state))
+                A[i,:] = -1.0*dhdx_single_int(b_state,obstacle_state)
+                bvec[i] = delta*h(b_state,obstacle_state,R,Ro)
 
             # Add the infinity norm input constraints
-            A = np.append(A,Au,axis=0)
+            # A = np.append(A,Au,axis=0) # for untransformed inputs
+            A = np.append(A,Au_untr,axis=0) # for untransformed inputs
             bvec = np.append(bvec,bu,axis=0)
         else:
-            A = Au
+            # A = Au
+            A = Au_untr
             bvec = bu
 
         print("\nA Matrix")
         print(A)
         print("\nb vector")
-        print(b)
+        print(bvec)
 
         model = osqp.OSQP()
-        model.setup(P=P, q=q, A=csc_matrix(A), u=b, verbose=False)
+        model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
           
         results = model.solve()
 
@@ -204,7 +229,12 @@ def IOcallback(msg):
         # Transform by the T matrix
         # Only use this if you use the nominalCtrl_untransformed function
         Tmatrix = T(state[2])
+        print("\nTmatrix:")
+        print(Tmatrix)
         u = Tmatrix.dot(u)
+        
+        print("\nTransformed input:")
+        print(u)
 
         vel_msg.linear.x = u[0]
         vel_msg.angular.z = u[1]
@@ -221,7 +251,7 @@ def IOcallback(msg):
 
 
 
-def T(theta)
+def T(theta):
     global b
     return np.array([[cos(theta), sin(theta)],[-sin(theta)/b, cos(theta)/b]])
 
@@ -241,8 +271,8 @@ def nominalCtrl(state, point, point_deriv):
     print("e1, e2: {0}, {1}".format(point[0] - y1, point[1]-y2))
 
     u = np.zeros(2)
-    u[0] = point_deriv[0] + k*(point[0] - y1)
-    u[1] = point_deriv[1] + k*(point[1] - y2)
+    u[0] = kd*point_deriv[0] + kp*(point[0] - y1)
+    u[1] = kd*point_deriv[1] + kp*(point[1] - y2)
 
     Tmatrix = T(state[2])
     print("\nT matrix:")
@@ -270,8 +300,8 @@ def nominalCtrl_untransformed(state, point, point_deriv):
     print("e1, e2: {0}, {1}".format(point[0] - y1, point[1]-y2))
 
     u = np.zeros(2)
-    u[0] = point_deriv[0] + k*(point[0] - y1)
-    u[1] = point_deriv[1] + k*(point[1] - y2)
+    u[0] = kd*point_deriv[0] + kp*(point[0] - y1)
+    u[1] = kd*point_deriv[1] + kp*(point[1] - y2)
 
     return u
 
@@ -285,9 +315,11 @@ def dhdx(x,xo):
     # x and xo refer to the positional (x,y) state of the agent (x) and obstacle (xo)
     return 2*np.array([x[0]-xo[0], x[1]-xo[1], 0])
 
+def dhdx_single_int(x,xo):
+    return 2*np.array([x[0]-xo[0], x[1]-xo[1]])
+
 def g(x):
     return np.array([[cos(x[2]), 0], [sin(x[2]), 0], [0,1]])
-
 
 def determine_theta(quaternion, tolerance=0.01):
     # Determines a (very rough) approximation of theta by projecting the forward direction axis of the agent
