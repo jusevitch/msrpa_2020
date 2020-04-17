@@ -1,2 +1,4 @@
 *.swp
 models/*
+*.pyc
+*.swo
