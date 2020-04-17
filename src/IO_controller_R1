@@ -88,6 +88,7 @@ def R1_QP_control():
 ## Helper functions
 
 def IOcallback(msg):
+    global b
     # Current time
 
     # Change this later to remove global and  take t0 from leader nodes
@@ -146,8 +147,8 @@ def IOcallback(msg):
         print("\np and dp:")
         print(str(p) + ", " + str(dp))
         
-        uhat = nominalCtrl(state, p, dp)
-        print("\nuhat:")
+        uhat = nominalCtrl_untransformed(state, p, dp)
+        print("\nuhat untransformed:")
         print(uhat)
         
         # Minimally modify nominal controller with CBF QP
@@ -156,7 +157,8 @@ def IOcallback(msg):
         
         # TODO: This currently assumes everything has the same safety radius.
         #       Need to create a parameter server which lists the safety radii of all nodes.
-        R = 1.5 
+        R = b + 0.5
+        Ro = 1.5
 
 
         # print("\nreduced_indices:")
@@ -164,7 +166,7 @@ def IOcallback(msg):
 
         if len(reduced_indices) > 0:
             A = np.zeros((len(reduced_indices),2))
-            b = np.zeros(len(reduced_indices))
+            bvec = np.zeros(len(reduced_indices))
 
             for i in range(len(reduced_indices)):
                 idx = reduced_indices[i]
@@ -175,10 +177,10 @@ def IOcallback(msg):
 
             # Add the infinity norm input constraints
             A = np.append(A,Au,axis=0)
-            b = np.append(b,bu,axis=0)
+            bvec = np.append(bvec,bu,axis=0)
         else:
             A = Au
-            b = bu
+            bvec = bu
 
         print("\nA Matrix")
         print(A)
@@ -199,6 +201,11 @@ def IOcallback(msg):
             print("\nstatus_val did NOT RETURN 1 OR 2")
             u = np.zeros(2)
 
+        # Transform by the T matrix
+        # Only use this if you use the nominalCtrl_untransformed function
+        Tmatrix = T(state[2])
+        u = Tmatrix.dot(u)
+
         vel_msg.linear.x = u[0]
         vel_msg.angular.z = u[1]
 
@@ -211,6 +218,12 @@ def IOcallback(msg):
         # print(currentObjectStates.name)
         # print("\n")
     # /Debug
+
+
+
+def T(theta)
+    global b
+    return np.array([[cos(theta), sin(theta)],[-sin(theta)/b, cos(theta)/b]])
 
 
 
@@ -231,12 +244,37 @@ def nominalCtrl(state, point, point_deriv):
     u[0] = point_deriv[0] + k*(point[0] - y1)
     u[1] = point_deriv[1] + k*(point[1] - y2)
 
-    T = np.array([[cos(state[2]), sin(state[2])],[-sin(state[2])/b, cos(state[2])/b]])
+    Tmatrix = T(state[2])
     print("\nT matrix:")
-    print(T)
+    print(Tmatrix)
     print("\nProduct of T.dot(u):")
-    print(T.dot(u))
-    return T.dot(u)
+    print(Tmatrix.dot(u))
+    return Tmatrix.dot(u)
+
+
+
+def nominalCtrl_untransformed(state, point, point_deriv):
+    # This controller does not transform the u values by the T(theta) matrix.
+    # See Siciliano 2009, _Robotics_, Ch. 11, eq. 11.74 for details
+
+    global b
+    
+    print("\nState values:")
+    print(state)
+
+    # Assumes that all inputs are numpy arrays
+    y1 = state[0] + b*cos(state[2])
+    y2 = state[1] + b*sin(state[2])
+
+    print("y1,y2: {0}, {1}".format(y1, y2))
+    print("e1, e2: {0}, {1}".format(point[0] - y1, point[1]-y2))
+
+    u = np.zeros(2)
+    u[0] = point_deriv[0] + k*(point[0] - y1)
+    u[1] = point_deriv[1] + k*(point[1] - y2)
+
+    return u
+
 
 
 def h(x,xo,R,Ro):
