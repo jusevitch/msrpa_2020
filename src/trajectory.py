@@ -21,7 +21,7 @@ def circular2D(t, c=(0,0), R=1, w=0.1, theta0=0):
 
     # Returns both the point and the time derivative of the point (i.e. velocity)
     
-    point = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0])
+    point = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0)])
     point_deriv = np.array([-R*w*np.sin(w*t + theta0), R*w*np.cos(w*t + theta0)])
     return (point, point_deriv)
 
