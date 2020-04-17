@@ -30,6 +30,7 @@ state = np.zeros(3)
 # Agent controller parameters
 b = 0.1 # Parameter for Siciliano input / output controller
 k = 1
+delta = .01 # Parameter for class-K function in QP
 
 # Twist message
 vel_msg = Twist()
@@ -88,14 +89,25 @@ def R1_QP_control():
 
 def IOcallback(msg):
     # Current time
+
+    # Change this later to remove global and  take t0 from leader nodes
+    global t0
+    if t0 is np.inf:
+        t0 = rospy.get_rostime()
+
     rosTime = rospy.get_rostime()
-    if (t0 < np.inf and rosTime != 0):
-        if (t0 >= rosTime):
-            t = rosTime - t0
+    if t0 is not np.inf:
+        if (t0 <= rosTime):
+            temp = rosTime - t0
+            t = temp.to_sec() + 1e-9*temp.to_nsec()
         else:
-            t = 0
+            t = 0.0
     else:
-        t = 0
+        t = 0.0
+        print("\nt0 is: " + str(t0))
+
+    print("\nt is: ")
+    print(t)
 
 
     # Object states
@@ -113,6 +125,9 @@ def IOcallback(msg):
         state[1] = currentObjectStates.pose[state_index].position.y
         state[2] = determine_theta(currentObjectStates.pose[state_index].orientation)
 
+        print("\nCurrent state:")
+        print(state)
+
         # Find the indices for all rovers, quads, and objects specifically labeled "obstacle"
         # The array 'patterns' is defined above in the global scope
         reduced_indices = [currentObjectStates.name.index(s) for s in currentObjectStates.name if any(xs in s for xs in patterns)]
@@ -123,37 +138,55 @@ def IOcallback(msg):
 
         # Solve for nominal trajectory tracking controller
         if trajectory_type is not None:
-            p, dp = traj_func[trajectory_type](t,c=(0,0), R=10, w=0.1)
+            p, dp = traj_func[trajectory_type](t,c=(0,0), R=5, w=0.07)
         else:
             p = state[0:2]
             dp = np.zeros(2)
+
+        print("\np and dp:")
+        print(str(p) + ", " + str(dp))
         
         uhat = nominalCtrl(state, p, dp)
+        print("\nuhat:")
+        print(uhat)
         
         # Minimally modify nominal controller with CBF QP
-        q = 2*uhat
-        print("\nq:")
-        print(q)
+        # OSQP assumes the form (1/2)u^T P u + q^T u
+        q = -uhat
         
         # TODO: This currently assumes everything has the same safety radius.
         #       Need to create a parameter server which lists the safety radii of all nodes.
         R = 1.5 
 
-        A = np.zeros((len(reduced_indices),2))
-        b = np.zeros(len(reduced_indices))
 
-        print("\nreduced_indices:")
-        print(reduced_indices)
+        # print("\nreduced_indices:")
+        # print(reduced_indices)
 
-        for i in range(len(reduced_indices)):
-            idx = reduced_indices[i]
-            obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y])
+        if len(reduced_indices) > 0:
+            A = np.zeros((len(reduced_indices),2))
+            b = np.zeros(len(reduced_indices))
 
-            A[i,:] = dhdx(state[0:2],obstacle_state).dot(g(state))
-            b[i] = -h(state,obstacle_state,R,R)
+            for i in range(len(reduced_indices)):
+                idx = reduced_indices[i]
+                obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y])
+
+                A[i,:] = dhdx(state,obstacle_state).dot(g(state))
+                b[i] = delta*h(state,obstacle_state,R,R)
+
+            # Add the infinity norm input constraints
+            A = np.append(A,Au,axis=0)
+            b = np.append(b,bu,axis=0)
+        else:
+            A = Au
+            b = bu
+
+        print("\nA Matrix")
+        print(A)
+        print("\nb vector")
+        print(b)
 
         model = osqp.OSQP()
-        model.setup(P=P, A=csc_matrix(A), u=b, verbose=False)
+        model.setup(P=P, q=q, A=csc_matrix(A), u=b, verbose=False)
           
         results = model.solve()
 
@@ -182,21 +215,33 @@ def IOcallback(msg):
 
 
 def nominalCtrl(state, point, point_deriv):
+    global b
+
+    print("\nState values:")
+    print(state)
+
     # Assumes that all inputs are numpy arrays
     y1 = state[0] + b*cos(state[2])
     y2 = state[1] + b*sin(state[2])
 
-    u = np.zeros(2)
-    u[0] = point_deriv[0] - k*(point[0] - y1)
-    u[1] = point_deriv[1] - k*(point[1] - y2)
+    print("y1,y2: {0}, {1}".format(y1, y2))
+    print("e1, e2: {0}, {1}".format(point[0] - y1, point[1]-y2))
 
-    T = np.array([[cos(state[2]), sin(state[2])],[-sin(state[2]/b), cos(state[2]/b)]])
+    u = np.zeros(2)
+    u[0] = point_deriv[0] + k*(point[0] - y1)
+    u[1] = point_deriv[1] + k*(point[1] - y2)
+
+    T = np.array([[cos(state[2]), sin(state[2])],[-sin(state[2])/b, cos(state[2])/b]])
+    print("\nT matrix:")
+    print(T)
+    print("\nProduct of T.dot(u):")
+    print(T.dot(u))
     return T.dot(u)
 
 
 def h(x,xo,R,Ro):
     # x and xo refer to the positional (x,y) state of the agent (x) and obstacle (xo)
-    return (np.linalg.norm(x[0:2] - xo, 2))**2 - max(R,Ro)
+    return (np.linalg.norm(x[0:2] - xo, 2))**2 - (max(R,Ro))**2
 
 def dhdx(x,xo):
     # x and xo refer to the positional (x,y) state of the agent (x) and obstacle (xo)
@@ -215,8 +260,8 @@ def determine_theta(quaternion, tolerance=0.01):
     # Tolerance determines how close the x-axis must be to vertical before returning an error. This
     # will need to be improved in future versions.
 
-    print("\n input quaternion:")
-    print(quaternion)
+    # print("\n input quaternion:")
+    # print(quaternion)
 
     # Quaternion must be either numpy vector or geometry_msgs/Quaternion message
     if type(quaternion) is Quaternion:
@@ -228,16 +273,10 @@ def determine_theta(quaternion, tolerance=0.01):
     else:
         rotation_quaternion = quaternion
 
-    print("\n rotation_quaternion: ")
-    print(rotation_quaternion)
     quat_vector = np.array([1,0,0,0]) # x-axis in local frame
     # Perform the quaternion rotation qvq^-1
     quat_vector = trans.quaternion_multiply(rotation_quaternion, quat_vector)
-    print("\n quat_vector after first transformation:")
-    print(quat_vector)
     quat_vector = trans.quaternion_multiply(quat_vector, trans.quaternion_conjugate(rotation_quaternion))
-    print("\n quat_vector after second transformation:")
-    print(quat_vector)
 
     # Project resulting vector onto the x-y plane and normalize
     two_dim_vec = np.array([quat_vector[0], quat_vector[1]])
@@ -245,12 +284,15 @@ def determine_theta(quaternion, tolerance=0.01):
         # Debug
         print("\ntwo_dim_vec value: " + str(two_dim_vec) + "\n")
         # /Debug
-        raise RuntimeError('Cannot determine theta: x-vector is too close to vertical. Check model poses or change the tolerance.')
+        print('Cannot determine theta: x-vector is too close to vertical. Check model poses or change the tolerance.')
     
     # Determine theta as angle between two_dim_vector and x-axis of global frame
     # If two_dim_vec is zero, return an error...TODO
-    return arccos(two_dim_vec.dot(np.array([1,0]))/np.linalg.norm(two_dim_vec))
-
+    abs_theta = arccos(two_dim_vec.dot(np.array([1,0]))/np.linalg.norm(two_dim_vec)) 
+    if (two_dim_vec[1] >= 0):
+        return abs_theta
+    else:
+        return -abs_theta
 
 def objectCallback(msg):
     # Updates the global obstacleStates
@@ -280,6 +322,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='IO_controller_R1 : Node containing the QP controller for R1 Rovers.')
     parser.add_argument('--rover_namespace', help="The namespace of the rover; i.e. rover0.")
+    parser.add_argument('--instant_start', action="store_true", help='Starts the trajectory immediately upon the node launching.')
     args = parser.parse_args(myargv)
     
     if args.rover_namespace is not None:
@@ -287,6 +330,9 @@ if __name__ == '__main__':
         print("The rover namespace is " + rover_namespace)
     else:
         rover_namespace = 'rover0'
+
+    # if args.instant_start:
+    #     t0 = rospy.get_rostime()
 
     pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1) # Double check to make sure this has correct namespace later
 
