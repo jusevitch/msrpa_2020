@@ -27,7 +27,7 @@ from numpy import cos, sin
 
 # Parameters
 
-
+number_of_quadrotors = 2
 
 
 # Construct the launch file
@@ -50,26 +50,32 @@ launch.arg = {
 gazebo_include = EL.include(file="$(find gazebo_ros)/launch/empty_world.launch")
 
 
-quad_include = EL.include(file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch")
-quad_include.ns = "quad0"
-quad_include.defarg = ["model", "controllers"]
-quad_include.arg = {
-    "name": "quad0",
-    "tf_prefix": "quad0",
-    "x": "0.0",
-    "y": "0.0"
-}
+quad_include = [EL.include(file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch") for i in range(number_of_quadrotors)]
 
-launch.include = [gazebo_include, quad_include]
+for i in range(number_of_quadrotors):
+    quad_include[i].ns = "quad" + str(i)
+    quad_include[i].defarg = ["model", "controllers"]
+    quad_include[i].arg = {
+        "name": "quad" + str(i),
+        "tf_prefix": "quad" + str(i),
+        "x": str(10*cos(i*(2*3.14 / number_of_quadrotors))),
+        "y": str(10*sin(i*(2*3.14 / number_of_quadrotors)))
+    }
+ 
+
+launch.include = [gazebo_include] + quad_include
 
 # Node files
 
-IO_node = EL.node(name="IO_ctrl_quad0", pkg="msrpa_2020", type="IO_controller_quad")
-IO_node.args = "--quad_namespace quad0"
-IO_node.output = "screen"
-IO_node.ns = "quad0"
+IO_nodes = [EL.node(name=str("IO_ctrl_quad" + str(i)), pkg="msrpa_2020", type="IO_controller_quad") for i in range(number_of_quadrotors)]
 
-launch.node = [IO_node]
+for i in range(number_of_quadrotors):
+    IO_nodes[i].args = "--quad_namespace quad" + str(i)
+    IO_nodes[i].output = "screen"
+    IO_nodes[i].ns = "quad" + str(i)
+
+
+launch.node = IO_nodes
 
 # Write the file to XML
 
