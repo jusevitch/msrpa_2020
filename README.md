@@ -29,13 +29,13 @@ This workspace configuration worked as of April 2020. Please note that the other
 
 These tools are not required to use this package, but may make your life easier.
 
-    * [EasyLaunch](https://github.com/jusevitch/easylaunch): A Python module that lets you script launch files in Python, then generates the XML launch file automatically.
+* [EasyLaunch](https://github.com/jusevitch/easylaunch): A Python module that lets you script launch files in Python, then generates the XML launch file automatically.
 
 ## Quick Demos
 
 To see it in action, source your ROS workspace and run one of the launch files from the following list:
 
-    * `launch/easylaunch_scripts/one_rover_2_cubes.launch`: One R1 rover tracks a circular trajectory while avoiding two cube obstacles. A little boring, but it works.
+* `launch/easylaunch_scripts/one_rover_2_cubes.launch`: One R1 rover tracks a circular trajectory while avoiding two cube obstacles. A little boring, but it works.
 
 ## Instructions
 
