@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 
-"""
-
-     ____  ___   _____ ______   __          __    
-    / __ \/   | / ___// ____/  / /   ____ _/ /_   
-   / / / / /| | \__ \/ /      / /   / __ `/ __ \  
-  / /_/ / ___ |___/ / /___   / /___/ /_/ / /_/ /  
- /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
-                                                  
-
-Author: James Usevitch
-
-Description: This file contains the input/output linearization controller for the
-             AION R1 Rover. Obstacle avoidance and input constraint satisfaction
-             is calculated using a control barrier function and QP method.
-
-"""
+# 
+#      ____  ___   _____ ______   __          __    
+#     / __ \/   | / ___// ____/  / /   ____ _/ /_   
+#    / / / / /| | \__ \/ /      / /   / __ `/ __ \  
+#   / /_/ / ___ |___/ / /___   / /___/ /_/ / /_/ /  
+#  /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
+#                                                   
+# 
+# Author: James Usevitch
+# 
+# Description: This file contains the input/output linearization controller for the
+#              AION R1 Rover. Obstacle avoidance and input constraint satisfaction
+#              is calculated using a control barrier function and QP method.
+# 
 
 
 import rospy
