@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+
+"""
+
+     ____  ___   _____ ______   __          __    
+    / __ \/   | / ___// ____/  / /   ____ _/ /_   
+   / / / / /| | \__ \/ /      / /   / __ `/ __ \  
+  / /_/ / ___ |___/ / /___   / /___/ /_/ / /_/ /  
+ /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
+                                                  
+
+Author: James Usevitch
+
+Description: This file is uses EasyLaunch to generate a launch file for one
+             Hector quadrotor with an IO_controller in Gazebo. Run directly in the
+             terminal passing the desired output file name as an argument.
+
+"""
+
+
+import sys
+
+## Append easylaunch directory to path
+## !!! PUT THE PATH TO THE EASYLAUNCH FILE HERE !!!
+sys.path.append('/media/james/Data/code2/easylaunch')
+
+import easylaunch as EL
+from numpy import cos, sin
+
+# Parameters
+
+
+
+
+# Construct the launch file
+
+
+launch = EL.launchFile()
+
+# Global launch arguments. Need to rename this in easylaunch.py sometime.
+
+launch.arg = {
+    "model": "$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro",
+    "controllers": "controller/attitude  controller/velocity  controller/position"
+}
+
+
+
+# Include files
+
+
+gazebo_include = EL.include(file="$(find gazebo_ros)/launch/empty_world.launch")
+
+
+quad_include = EL.include(file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch")
+quad_include.ns = "quad0"
+quad_include.defarg = ["model", "controllers"]
+quad_include.arg = {
+    "name": "quad0",
+    "tf_prefix": "quad0",
+    "x": "0.0",
+    "y": "0.0"
+}
+
+launch.include = [gazebo_include, quad_include]
+
+# Node files
+
+
+# Write the file to XML
+
+if __name__ == "__main__":
+    # Command line option
+    if len(sys.argv) > 1:
+        launchfile_name = sys.argv[1] # Must be 1. The 0th entry of the array will be "msrpa_only.py".
+    else:
+        launchfile_name = "../" + "IO_control_quad.launch"
+    
+    launch.write(filename=launchfile_name, verbose=True)
