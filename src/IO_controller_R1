@@ -84,13 +84,13 @@ patterns = ['rover', 'quad','obstacle']
 
 ## Main function
 
-def R1_QP_control():
+def R1_qp_control():
     
-    rospy.init_node('R1_QP_control')
+    rospy.init_node('R1_qp_control')
 
     # Subscribers
 
-    rospy.Subscriber("/gazebo/model_states", ModelStates, objectCallback)
+    rospy.Subscriber("/gazebo/model_states", ModelStates, object_callback)
     rospy.Timer(rospy.Duration(1.0/input_Hz), IOcallback)
 
     rospy.spin()
@@ -158,7 +158,7 @@ def IOcallback(msg):
         print("\np and dp:")
         print(str(p) + ", " + str(dp))
         
-        uhat = nominalCtrl_untransformed(state, p, dp)
+        uhat = nominal_ctrl_untransformed(state, p, dp)
         print("\nuhat untransformed:")
         print(uhat)
 
@@ -225,7 +225,7 @@ def IOcallback(msg):
             u = np.zeros(2)
 
         # Transform by the T matrix
-        # Only use this if you use the nominalCtrl_untransformed function
+        # Only use this if you use the nominal_ctrl_untransformed function
         Tmatrix = T(state[2])
         print("\nTmatrix:")
         print(Tmatrix)
@@ -255,7 +255,7 @@ def T(theta):
 
 
 
-def nominalCtrl(state, point, point_deriv):
+def nominal_ctrl(state, point, point_deriv):
     global b
 
     print("\nState values:")
@@ -281,7 +281,7 @@ def nominalCtrl(state, point, point_deriv):
 
 
 
-def nominalCtrl_untransformed(state, point, point_deriv):
+def nominal_ctrl_untransformed(state, point, point_deriv):
     # This controller does not transform the u values by the T(theta) matrix.
     # See Siciliano 2009, _Robotics_, Ch. 11, eq. 11.74 for details
 
@@ -362,7 +362,7 @@ def determine_theta(quaternion, tolerance=0.01):
     else:
         return -abs_theta
 
-def objectCallback(msg):
+def object_callback(msg):
     # Updates the global obstacleStates
     # Using globals is terrible programming practice and needs to be changed later.
     global objectStates
@@ -405,5 +405,5 @@ if __name__ == '__main__':
     pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1) # Double check to make sure this has correct namespace later
 
     try:
-        R1_QP_control()
+        R1_qp_control()
     except rospy.ROSInterruptException: pass

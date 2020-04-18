@@ -84,13 +84,13 @@ patterns = ['rover', 'quad','obstacle']
 
 ## Main function
 
-def quad_QP_control():
+def quad_qp_control():
     
-    rospy.init_node('quad_QP_control')
+    rospy.init_node('quad_qp_control')
 
     # Subscribers
 
-    rospy.Subscriber("/gazebo/model_states", ModelStates, objectCallback)
+    rospy.Subscriber("/gazebo/model_states", ModelStates, object_callback)
     rospy.Timer(rospy.Duration(1.0/input_Hz), IOcallback)
 
     rospy.spin()
@@ -161,7 +161,7 @@ def IOcallback(msg):
         print("\nError:")
         print(state - p)
         
-        uhat = nominalCtrl(state, p, dp)
+        uhat = nominal_ctrl(state, p, dp)
         print("\nuhat untransformed:")
         print(uhat)
         
@@ -233,7 +233,7 @@ def IOcallback(msg):
 
 
 
-def nominalCtrl(state, point, point_deriv):
+def nominal_ctrl(state, point, point_deriv):
      global kp, kd
 
      return kd*point_deriv + kp*(point-state)
@@ -252,9 +252,9 @@ def g(x):
 
 def determine_theta(quaternion, tolerance=0.01):
     # Determines a (very rough) approximation of theta by projecting the forward direction axis of the agent
-    # (assumed to be x-axis) onto the ground plane (x-y plane in Gazebo). This operation can be undefined,
-    # so be careful and make sure that your agents never have their forward axis pointing perpendicular
-    # to the ground plane.
+    # (assumed to be agent body frame x-axis) onto the ground plane (x-y plane in Gazebo). This operation     
+    # can be undefined, so be careful and make sure that your agents never have their forward axis pointing 
+    # perpendicular to the ground plane.
 
     # Tolerance determines how close the x-axis must be to vertical before returning an error. This
     # will need to be improved in future versions.
@@ -293,7 +293,12 @@ def determine_theta(quaternion, tolerance=0.01):
     else:
         return -abs_theta
 
-def objectCallback(msg):
+
+def formation_offset()
+
+
+
+def object_callback(msg):
     # Updates the global obstacleStates
     # Using globals is terrible programming practice and needs to be changed later.
     global objectStates
@@ -341,7 +346,7 @@ if __name__ == '__main__':
     response = enable_motors(True)
     if response.success:
         try:
-            quad_QP_control()
+            quad_qp_control()
         except rospy.ROSInterruptException: pass
     else:
         print("Something went wrong with calling 'enable_motors' service for quadrotor" + quad_namespace)
