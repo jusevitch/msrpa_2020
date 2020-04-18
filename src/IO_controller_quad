@@ -20,7 +20,7 @@ import rospy
 import sys
 import osqp
 import numpy as np
-from numpy import cos, sin, arccos
+from numpy import cos, sin, arccos, arctan2
 from scipy.sparse import csc_matrix
 import tf.transformations as trans # For quaternion operations
 import argparse
@@ -147,7 +147,7 @@ def IOcallback(msg):
         if state_index in reduced_indices:
             reduced_indices.remove(state_index)
 
-        # Solve for nominal trajectory tracking controller
+        # Solve for center of formation point
         if trajectory_type is not None:
             p, dp = traj_func[trajectory_type](t,c=(0,0,5), R=5, w=0.07)
         else:
@@ -160,17 +160,23 @@ def IOcallback(msg):
         print(state)
         print("\nError:")
         print(state - p)
+
+        # Determine local target point and derivative as offset from the formational center
+        # TODO: This assumes that the formation frame's xy plane is always parallel to global
+        #       xy frame. This may need to be changed later.
+        phi = arctan2(dp[1], dp[0]) # arctan2(y,x)
+        formation_state = np.append(p,np.array((phi)))
+        local_p, local_dp = formation_offset(p, dp, 
         
         uhat = nominal_ctrl(state, p, dp)
         print("\nuhat untransformed:")
         print(uhat)
         
         # Minimally modify nominal controller with CBF QP
-        # OSQP assumes the form (1/2)u^T P u + q^T u
-        q = -uhat
-        
         # TODO: This currently assumes everything has the same safety radius.
         #       Need to create a parameter server which lists the safety radii of all nodes.
+        # OSQP assumes the form (1/2)u^T P u + q^T u
+        q = -uhat
         R = 1.0
         Ro = 1.0
 
@@ -294,8 +300,47 @@ def determine_theta(quaternion, tolerance=0.01):
         return -abs_theta
 
 
-def formation_offset()
+def formation_offset(formation_state, deriv_formation_state, offset_vector)
+    # Calculates an agent's desired formational position as an offset from the center of formation
 
+    # This assumes that there exists a formational frame defined by:
+    #   * A point acting as the center of formation
+    #   * A directional vector acting as the x axis of the frame
+    # For now, the formational frame xy plane is assumed to be parallel to the flat ground xy plane.
+    # In addition, addition, the offset vector is assumed to not be time-varying.
+    #
+    # Inputs:
+    #
+    # formation_state:          The state of the formation. A numpy array with the form [xc, yc, zc, phi] where
+    #                           (xc,yc,zc) are the coordinates of the center of formation point and phi is the
+    #                           rotational angle (about the global z-axis) from the global x-axis to the 
+    #                           formational frame x axis.
+    #
+    # deriv_formation_state:    The time derivative of formation_state. A numpy vector with the form
+    #                           [dxc, dyc, dzc, dphi], where d represents the time derivative.
+    #
+    # offset_vector:            The offset vector from the formational center resolved in the formational frame.
+    #                           A numpy vector of the form [x, y, z]
+    # 
+    # Outputs:
+    #
+    # output_point:             A numpy vector containing the formational offset point resolved in the global
+    #                           frame. 
+    #
+    # deriv_output_point:       A numpy vector containing the time derivative of output_point
+    #
+    # output_velocity: A numpy vector containing the velocity of the offset point
+    
+    phi = formation_state[3]
+    rotation_matrix = np.array([cos(phi), -sin(phi), 0],[sin(phi), cos(phi), 0],[0, 0, 1])
+    output_point = rotation_matrix.dot(formation_state[0:3] + offset_vector)
+
+    dphi = deriv_formation_state[3]
+    deriv_rotation_matrix = dphi*np.array([[-sin(phi), -cos(phi), 0],[cos(phi), -sin(phi), 0], [0, 0, 1]])
+    deriv_output_point = deriv_rotation_matrix.dot(output_point) + rotation_matrix.dot(deriv_formation_state[0:3])
+
+    return (output_point, deriv_output_point)
+    
 
 
 def object_callback(msg):
