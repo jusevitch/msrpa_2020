@@ -2,7 +2,10 @@
 
 This repository contains code for the 2020 ROS/Gazebo simulations of the MS-RPA algorithm.
 
-## Instructions
+[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
+
+
+## Installation and Requirements
 
 This code was run on Ubuntu 18.04 with ROS Melodic, Gazebo v9.0, RViz v1.13.7. 
 
@@ -16,9 +19,27 @@ This code was run on Ubuntu 18.04 with ROS Melodic, Gazebo v9.0, RViz v1.13.7.
     * [hector\_models](https://github.com/tu-darmstadt-ros-pkg/hector_models)
     * [hector\_quadrotor](https://github.com/tu-darmstadt-ros-pkg/hector_quadrotor)
 * Build your workspace using `catkin build`. Some hacking may be required. Welcome to ROS. `¯\_(ツ)_/¯`
+* Ensure that the following packages **for Python 2.7** are installed (by using pip):
+    * Numpy / Scipy (`pip2 install numpy scipy`)
+    * [OSQP](https://osqp.org/) (`pip2 install osqp`)
 
 This workspace configuration worked as of April 2020. Please note that the other packages listed above were only suppported through ROS Kinetic, and may possibly break when used with future versions of ROS. 
 
+### Optional Tools
+
+These tools are not required to use this package, but may make your life easier.
+
+* [EasyLaunch](https://github.com/jusevitch/easylaunch): A Python module that lets you script launch files in Python, then generates the XML launch file automatically.
+
+## Quick Demos
+
+To see it in action, source your ROS workspace and run one of the launch files from the following list:
+
+* `launch/easylaunch_scripts/one_rover_2_cubes.launch`: One R1 rover tracks a circular trajectory while avoiding two cube obstacles. A little boring, but it works.
+
+## Instructions
+
+_Coming soon..._
 
 ## License
 
