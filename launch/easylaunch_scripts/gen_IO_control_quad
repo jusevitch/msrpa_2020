@@ -71,6 +71,8 @@ IO_nodes = [EL.node(name=str("IO_ctrl_quad" + str(i)), pkg="msrpa_2020", type="I
 
 for i in range(number_of_quadrotors):
     IO_nodes[i].args = "--quad_namespace quad" + str(i)
+    IO_nodes[i].args += " --formation_x " + str(3*cos(i*(2*3.14 / number_of_quadrotors)))
+    IO_nodes[i].args += " --formation_y " + str(3*sin(i*(2*3.14 / number_of_quadrotors)))
     IO_nodes[i].output = "screen"
     IO_nodes[i].ns = "quad" + str(i)
 

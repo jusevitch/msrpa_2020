@@ -44,6 +44,8 @@ from hector_uav_msgs.srv import EnableMotors, EnableMotorsResponse
 
 state = np.zeros(3)
 
+local_offset = np.array([0,0,0])
+
 # Agent controller parameters
 # Gain tuning may be needed
 kp = 5
@@ -116,19 +118,19 @@ def IOcallback(msg):
             t = 0.0
     else:
         t = 0.0
-        print("\nt0 is: " + str(t0))
+        # print("\nt0 is: " + str(t0))
 
-    print("\nt is: ")
-    print(t)
+    # print("\nt is: ")
+    # print(t)
 
 
     # Object states
     currentObjectStates = deepcopy(objectStates)
     
     # Debug
-    print("\n the currentObjectStates is:")
-    print(currentObjectStates)
-    print("\n")
+    # print("\n the currentObjectStates is:")
+    # print(currentObjectStates)
+    # print("\n")
     # /Debug
 
     if (quad_namespace in currentObjectStates.name):
@@ -147,9 +149,18 @@ def IOcallback(msg):
         if state_index in reduced_indices:
             reduced_indices.remove(state_index)
 
-        # Solve for center of formation point
+        # Solve for center of formation and formation frame state
         if trajectory_type is not None:
-            p, dp = traj_func[trajectory_type](t,c=(0,0,5), R=5, w=0.07)
+            formation_state, deriv_formation_state = traj_func[trajectory_type](t,c=(0,0,5), R=5, w=0.07)
+            
+            # Determine local target point and derivative as offset from the formational center
+            # TODO: This assumes that the formation frame's xy plane is always parallel to global
+            #       xy frame. This may need to be changed later.
+            if np.any(local_offset != np.array([0.0, 0.0, 0.0])):
+                p, dp = formation_offset(formation_state, deriv_formation_state, local_offset)
+            else:
+                p = formation_state[0:3]
+                dp = deriv_formation_state[0:3]
         else:
             p = state
             dp = np.zeros(3)
@@ -159,18 +170,14 @@ def IOcallback(msg):
         print("\nCurrent state:")
         print(state)
         print("\nError:")
-        print(state - p)
+        print(state - p[0:3])
 
-        # Determine local target point and derivative as offset from the formational center
-        # TODO: This assumes that the formation frame's xy plane is always parallel to global
-        #       xy frame. This may need to be changed later.
-        phi = arctan2(dp[1], dp[0]) # arctan2(y,x)
-        formation_state = np.append(p,np.array((phi)))
-        local_p, local_dp = formation_offset(p, dp, 
-        
+        # print("\np minus formation_state for agent {0}:".format(quad_namespace))
+        # print(p - formation_state[0:3])
+
         uhat = nominal_ctrl(state, p, dp)
-        print("\nuhat untransformed:")
-        print(uhat)
+        # print("\nuhat untransformed:")
+        # print(uhat)
         
         # Minimally modify nominal controller with CBF QP
         # TODO: This currently assumes everything has the same safety radius.
@@ -181,8 +188,8 @@ def IOcallback(msg):
         Ro = 1.0
 
 
-        # print("\nreduced_indices:")
-        # print(reduced_indices)
+        # # print("\nreduced_indices:")
+        # # print(reduced_indices)
 
         if len(reduced_indices) > 0:
             A = np.zeros((len(reduced_indices),3))
@@ -190,23 +197,23 @@ def IOcallback(msg):
 
             for i in range(len(reduced_indices)):
                 idx = reduced_indices[i]
-                obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y])
+                obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y, currentObjectStates.pose[idx].position.z])
 
-                A[i,:] = -1.0*dhdx(state,obstacle_state).dot(g(state))
-                bvec[i] = delta*h(b_state,obstacle_state,R,Ro)
+                A[i,:] = -1.0*dhdx(state,obstacle_state)
+                bvec[i] = delta*h(state,obstacle_state,R,Ro)
 
             # Add the infinity norm input constraints
             # A = np.append(A,Au,axis=0) # for untransformed inputs
-            A = np.append(A,Au_untr,axis=0) # for untransformed inputs
+            A = np.append(A,Au,axis=0) # for untransformed inputs
             bvec = np.append(bvec,bu,axis=0)
         else:
             A = Au
             bvec = bu
 
-        print("\nA Matrix")
-        print(A)
-        print("\nb vector")
-        print(bvec)
+        # # print("\nA Matrix")
+        # # print(A)
+        # # print("\nb vector")
+        # # print(bvec)
 
         model = osqp.OSQP()
         model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
@@ -217,7 +224,7 @@ def IOcallback(msg):
         # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
         if(results.info.status_val == 1 or results.info.status_val == 2):
             u = results.x
-            print("\nresulting controller: " + str(u))
+            # print("\nresulting controller: " + str(u))
         else:
             print("\nstatus_val did NOT RETURN 1 OR 2")
             u = np.zeros(3)
@@ -230,10 +237,10 @@ def IOcallback(msg):
 
     # Debug
     # else:
-        # print("quad_namespace is not in currentObjectStates.name")
-        # print("\n")
-        # print(currentObjectStates.name)
-        # print("\n")
+        # # print("quad_namespace is not in currentObjectStates.name")
+        # # print("\n")
+        # # print(currentObjectStates.name)
+        # # print("\n")
     # /Debug
 
 
@@ -265,8 +272,8 @@ def determine_theta(quaternion, tolerance=0.01):
     # Tolerance determines how close the x-axis must be to vertical before returning an error. This
     # will need to be improved in future versions.
 
-    # print("\n input quaternion:")
-    # print(quaternion)
+    # # print("\n input quaternion:")
+    # # print(quaternion)
 
     # Quaternion must be either numpy vector or geometry_msgs/Quaternion message
     if type(quaternion) is Quaternion:
@@ -300,7 +307,7 @@ def determine_theta(quaternion, tolerance=0.01):
         return -abs_theta
 
 
-def formation_offset(formation_state, deriv_formation_state, offset_vector)
+def formation_offset(formation_state, deriv_formation_state, offset_vector):
     # Calculates an agent's desired formational position as an offset from the center of formation
 
     # This assumes that there exists a formational frame defined by:
@@ -332,12 +339,12 @@ def formation_offset(formation_state, deriv_formation_state, offset_vector)
     # output_velocity: A numpy vector containing the velocity of the offset point
     
     phi = formation_state[3]
-    rotation_matrix = np.array([cos(phi), -sin(phi), 0],[sin(phi), cos(phi), 0],[0, 0, 1])
-    output_point = rotation_matrix.dot(formation_state[0:3] + offset_vector)
+    rotation_matrix = np.array([[cos(phi), -sin(phi), 0],[sin(phi), cos(phi), 0],[0, 0, 1]])
+    output_point = rotation_matrix.dot(offset_vector) + formation_state[0:3] 
 
     dphi = deriv_formation_state[3]
     deriv_rotation_matrix = dphi*np.array([[-sin(phi), -cos(phi), 0],[cos(phi), -sin(phi), 0], [0, 0, 1]])
-    deriv_output_point = deriv_rotation_matrix.dot(output_point) + rotation_matrix.dot(deriv_formation_state[0:3])
+    deriv_output_point = deriv_rotation_matrix.dot(offset_vector) + deriv_formation_state[0:3]
 
     return (output_point, deriv_output_point)
     
@@ -364,21 +371,33 @@ if __name__ == '__main__':
     myargv = myargv[1:]     
    
     # DEBUG
-    print(myargv)
+    # print(myargv)
     rospy.loginfo(myargv)
     # raw_input("Press ENTER to continue...")
     # /DEBUG
     
     parser = argparse.ArgumentParser(description='IO_controller_quad : Node containing the QP controller for the Hector Quadrotors.')
     parser.add_argument('--quad_namespace', help="The namespace of the quad; i.e. quad0.")
+    parser.add_argument('--formation_x', type=float, help='The local formational x-axis offset of the agent in the formation frame.')
+    parser.add_argument('--formation_y', type=float, help='The local formational y-axis offset of the agent in the formation frame.')
+    parser.add_argument('--formation_z', type=float, help='The local formational z-axis offset of the agent in the formation frame.')
     parser.add_argument('--instant_start', action="store_true", help='Starts the trajectory immediately upon the node launching.')
     args = parser.parse_args(myargv)
     
     if args.quad_namespace is not None:
         quad_namespace = args.quad_namespace
-        print("The quad namespace is " + quad_namespace)
+        # print("The quad namespace is " + quad_namespace)
     else:
         quad_namespace = 'quad0'
+
+    if args.formation_x is not None:
+        local_offset[0] = args.formation_x
+
+    if args.formation_y is not None:
+        local_offset[1] = args.formation_y
+
+    if args.formation_z is not None:
+        local_offset[2] = args.formation_z
 
     # if args.instant_start:
     #     t0 = rospy.get_rostime()

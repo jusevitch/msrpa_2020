@@ -41,11 +41,11 @@ def circular2D(t, c=(0,0), R=1, w=0.1, theta0=0):
     phi = w*t + theta0 + np.pi/2.0
     dphi = w
     
-    point = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0), phi])
-    point_deriv = np.array([-R*w*np.sin(w*t + theta0), R*w*np.cos(w*t + theta0), dphi])
+    formation_state = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0), phi])
+    deriv_formation_state = np.array([-R*w*np.sin(w*t + theta0), R*w*np.cos(w*t + theta0), dphi])
 
     
-    return (point, point_deriv)
+    return (formation_state, deriv_formation_state)
 
 
 def circular3D(t, c=(0,0,0), R=1, w=0.1, theta0=0):
@@ -63,10 +63,18 @@ def circular3D(t, c=(0,0,0), R=1, w=0.1, theta0=0):
     #       edge of circle.
 
     # Returns both the point and the time derivative of the point (i.e. velocity)
+    #
+    # output_point:         [x, y, z, phi], where phi is the direction of the formation
+    #                       frame x axis
+    #
+    # deriv_output_point:   [dx, dy, dz, dphi]  
+
+    phi = w*t + theta0 
+    dphi = w
     
-    point = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0), c[2]])
-    point_deriv = np.array([-R*w*np.sin(w*t + theta0), R*w*np.cos(w*t + theta0), 0])
-    return (point, point_deriv)
+    formation_state = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0), c[2], phi])
+    deriv_formation_state = np.array([-R*w*np.sin(w*t + theta0), R*w*np.cos(w*t + theta0), 0, dphi])
+    return (formation_state, deriv_formation_state)
 
 # def square:
 
