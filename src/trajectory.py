@@ -30,11 +30,21 @@ def circular2D(t, c=(0,0), R=1, w=0.1, theta0=0):
     #            the point moving from the position [R+c[0], 0]. 
     #   w : Angular velocity. Determines how fast point moves around
     #       edge of circle.
-
+    #
     # Returns both the point and the time derivative of the point (i.e. velocity)
+    #
+    # output_point:         [x, y, phi], where phi is the direction of the formation
+    #                       frame x axis
+    #
+    # deriv_output_point:   [dx, dy, dphi]
+
+    phi = w*t + theta0 + np.pi/2.0
+    dphi = w
     
-    point = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0)])
-    point_deriv = np.array([-R*w*np.sin(w*t + theta0), R*w*np.cos(w*t + theta0)])
+    point = np.array([c[0] + R*np.cos(w*t + theta0), c[1] + R*np.sin(w*t + theta0), phi])
+    point_deriv = np.array([-R*w*np.sin(w*t + theta0), R*w*np.cos(w*t + theta0), dphi])
+
+    
     return (point, point_deriv)
 
 
