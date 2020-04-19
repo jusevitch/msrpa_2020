@@ -63,7 +63,7 @@ umax = 1;
 
 # Infinity norm bounds
 Au = np.array([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
-bu = np.array([umax, umax, umax, umax, 3, 3])
+bu = np.array([umax, umax, umax, umax, umax, umax])
 
 
 # Trajectory setup
@@ -183,7 +183,6 @@ def IOcallback(msg):
         # TODO: This currently assumes everything has the same safety radius.
         #       Need to create a parameter server which lists the safety radii of all nodes.
         # OSQP assumes the form (1/2)u^T P u + q^T u
-        q = -uhat
         R = 1.0
         Ro = 1.0
 
@@ -210,24 +209,25 @@ def IOcallback(msg):
             A = Au
             bvec = bu
 
-        # # print("\nA Matrix")
-        # # print(A)
-        # # print("\nb vector")
-        # # print(bvec)
 
-        model = osqp.OSQP()
-        model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
-          
-        results = model.solve()
-
-        # Set u equal to results if the problem was solved; otherwise set it to zero
-        # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
-        if(results.info.status_val == 1 or results.info.status_val == 2):
-            u = results.x
-            # print("\nresulting controller: " + str(u))
+        # If the nominal controller is feasible, skip the QP.
+        if (np.max(A.dot(uhat) - bvec) <= 0.0):
+            u = uhat
         else:
-            print("\nstatus_val did NOT RETURN 1 OR 2")
-            u = np.zeros(3)
+            q = -uhat
+            model = osqp.OSQP()
+            model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
+              
+            results = model.solve()
+
+            # Set u equal to results if the problem was solved; otherwise set it to zero
+            # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
+            if(results.info.status_val == 1 or results.info.status_val == 2):
+                u = results.x
+                # print("\nresulting controller: " + str(u))
+            else:
+                print("\nstatus_val did NOT RETURN 1 OR 2")
+                u = np.zeros(3)
 
         vel_msg.linear.x = u[0]
         vel_msg.linear.y = u[1]
@@ -247,10 +247,14 @@ def IOcallback(msg):
 
 
 def nominal_ctrl(state, point, point_deriv):
-     global kp, kd
-
-     return kd*point_deriv + kp*(point-state)
+    global kp, kd, umax
     
+    u = kd*point_deriv + kp*(point-state)
+    norm_u = np.linalg.norm(u,np.inf)
+    if norm_u <= umax:
+        return u 
+    else:
+        return umax * (u / norm_u)
 
 def h(x,xo,R,Ro):
     # x and xo refer to the positional (x,y) state of the agent (x) and obstacle (xo)
