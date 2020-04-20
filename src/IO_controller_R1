@@ -43,6 +43,8 @@ from geometry_msgs.msg import Quaternion
 
 state = np.zeros(3)
 
+local_offset = np.zeros(2)
+
 # Agent controller parameters
 # Gain tuning may be needed
 b = 0.1 # Parameter for Siciliano input / output controller
@@ -125,11 +127,11 @@ def IOcallback(msg):
     # Object states
     currentObjectStates = deepcopy(objectStates)
     
-    # Debug
-    print("\n the currentObjectStates is:")
-    print(currentObjectStates)
-    print("\n")
-    # /Debug
+    # # Debug
+    # print("\n the currentObjectStates is:")
+    # print(currentObjectStates)
+    # print("\n")
+    # # /Debug
 
     if (rover_namespace in currentObjectStates.name):
         state_index = currentObjectStates.name.index(rover_namespace) # Gets the index of agent state info
@@ -137,8 +139,6 @@ def IOcallback(msg):
         state[1] = currentObjectStates.pose[state_index].position.y
         state[2] = determine_theta(currentObjectStates.pose[state_index].orientation)
 
-        print("\nCurrent state:")
-        print(state)
 
         # Find the indices for all rovers, quads, and objects specifically labeled "obstacle"
         # The array 'patterns' is defined above in the global scope
@@ -150,13 +150,18 @@ def IOcallback(msg):
 
         # Solve for nominal trajectory tracking controller
         if trajectory_type is not None:
-            p, dp = traj_func[trajectory_type](t,c=(0,0), R=5, w=0.07)
+            formation_state, deriv_formation_state = traj_func[trajectory_type](t,c=(0,0), R=5, w=0.07)
+ 
+            # Determine local target point and derivative as offset from the formational center
+            if np.any(local_offset != np.array([0.0, 0.0])):
+                p, dp = formation_offset(formation_state, deriv_formation_state, local_offset)
+            else:
+                p = formation_state[0:2]
+                dp = deriv_formation_state[0:2]
         else:
             p = state[0:2]
             dp = np.zeros(2)
 
-        print("\np and dp:")
-        print(str(p) + ", " + str(dp))
         
         uhat = nominal_ctrl_untransformed(state, p, dp)
         print("\nuhat untransformed:")
@@ -165,9 +170,6 @@ def IOcallback(msg):
         # Location of the b point for IO controller
         b_state = state[0:2] + np.array([b*cos(state[2]), b*sin(state[2])])
         
-        # Minimally modify nominal controller with CBF QP
-        # OSQP assumes the form (1/2)u^T P u + q^T u
-        q = -uhat
         
         # TODO: This currently assumes everything has the same safety radius.
         #       Need to create a parameter server which lists the safety radii of all nodes.
@@ -210,19 +212,28 @@ def IOcallback(msg):
         print("\nb vector")
         print(bvec)
 
-        model = osqp.OSQP()
-        model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
-          
-        results = model.solve()
-
-        # Set u equal to results if the problem was solved; otherwise set it to zero
-        # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
-        if(results.info.status_val == 1 or results.info.status_val == 2):
-            u = results.x
-            print("\nresulting controller: " + str(u))
+        
+        # If the nominal controller is feasible, skip the QP.
+        if (np.max(A.dot(uhat) - bvec) <= 0.0):
+            u = uhat
         else:
-            print("\nstatus_val did NOT RETURN 1 OR 2")
-            u = np.zeros(2)
+            # Minimally modify nominal controller with CBF QP
+            # OSQP assumes the form (1/2)u^T P u + q^T u
+            q = -uhat
+
+            model = osqp.OSQP()
+            model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
+              
+            results = model.solve()
+
+            # Set u equal to results if the problem was solved; otherwise set it to zero
+            # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
+            if(results.info.status_val == 1 or results.info.status_val == 2):
+                u = results.x
+                print("\nresulting controller: " + str(u))
+            else:
+                print("\nstatus_val did NOT RETURN 1 OR 2")
+                u = np.zeros(2)
 
         # Transform by the T matrix
         # Only use this if you use the nominal_ctrl_untransformed function
@@ -362,6 +373,50 @@ def determine_theta(quaternion, tolerance=0.01):
     else:
         return -abs_theta
 
+
+
+def formation_offset(formation_state, deriv_formation_state, offset_vector):
+    # Calculates an agent's desired formational position as an offset from the center of formation
+
+    # This assumes that there exists a formational frame defined by:
+    #   * A point acting as the center of formation
+    #   * A directional vector acting as the x axis of the frame
+    # For now, the formational frame xy plane is assumed to be parallel to the flat ground xy plane.
+    # In addition, addition, the offset vector is assumed to not be time-varying.
+    #
+    # Inputs:
+    #
+    # formation_state:          The state of the formation. A numpy array with the form [xc, yc, phi] where
+    #                           (xc,yc,zc) are the coordinates of the center of formation point and phi is the
+    #                           rotational angle (about the global z-axis) from the global x-axis to the 
+    #                           formational frame x axis.
+    #
+    # deriv_formation_state:    The time derivative of formation_state. A numpy vector with the form
+    #                           [dxc, dyc, dphi], where d represents the time derivative.
+    #
+    # offset_vector:            The offset vector from the formational center resolved in the formational frame.
+    #                           A numpy vector of the form [x, y]
+    # 
+    # Outputs:
+    #
+    # output_point:             A numpy vector containing the formational offset point resolved in the global
+    #                           frame. 
+    #
+    # deriv_output_point:       A numpy vector containing the time derivative of output_point
+    #
+    # output_velocity: A numpy vector containing the velocity of the offset point
+    
+    phi = formation_state[3]
+    rotation_matrix = np.array([[cos(phi), -sin(phi)],[sin(phi), cos(phi)]])
+    output_point = rotation_matrix.dot(offset_vector) + formation_state[0:2] 
+
+    dphi = deriv_formation_state[2]
+    deriv_rotation_matrix = dphi*np.array([[-sin(phi), -cos(phi)],[cos(phi), -sin(phi)]])
+    deriv_output_point = deriv_rotation_matrix.dot(offset_vector) + deriv_formation_state[0:2]
+
+    return (output_point, deriv_output_point)
+
+
 def object_callback(msg):
     # Updates the global obstacleStates
     # Using globals is terrible programming practice and needs to be changed later.
@@ -390,6 +445,8 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='IO_controller_R1 : Node containing the QP controller for R1 Rovers.')
     parser.add_argument('--rover_namespace', help="The namespace of the rover; i.e. rover0.")
+    parser.add_argument('--formation_x', type=float, help='The local formational x-axis offset of the agent in the formation frame.')
+    parser.add_argument('--formation_y', type=float, help='The local formational y-axis offset of the agent in the formation frame.')
     parser.add_argument('--instant_start', action="store_true", help='Starts the trajectory immediately upon the node launching.')
     args = parser.parse_args(myargv)
     
@@ -398,6 +455,13 @@ if __name__ == '__main__':
         print("The rover namespace is " + rover_namespace)
     else:
         rover_namespace = 'rover0'
+
+
+    if args.formation_x is not None:
+        local_offset[0] = args.formation_x
+
+    if args.formation_y is not None:
+        local_offset[1] = args.formation_y
 
     # if args.instant_start:
     #     t0 = rospy.get_rostime()
