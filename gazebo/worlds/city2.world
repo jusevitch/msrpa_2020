@@ -1,0 +1,251 @@
+<?xml version="1.0" ?>
+
+<sdf version="1.6">
+  <world name="default">
+
+    <plugin name="ros_interface_plugin" filename="librotors_gazebo_ros_interface_plugin.so"/>
+
+
+    <plugin name="joy" filename="libJoyPlugin.so">
+      <sticky_buttons>false</sticky_buttons>
+      <dead_zone>0.05</dead_zone>
+      <rate>60</rate>
+      <accumulation_rate>1000</accumulation_rate>
+    </plugin>
+
+
+    <gui>
+     <camera name="user_camera">
+       <pose>-49.08 -1.911 6.95 0 0 -0.0159</pose>
+     </camera>
+     <plugin name="keyboard" filename="libKeyboardGUIPlugin.so">
+     </plugin>
+     <plugin name="TrafficLights" filename="libTrafficLightsGUIPlugin.so">
+
+       <!-- Q -->
+       <key value="113" model="stop_light_post_475" color="red"/>
+       <key value="113" model="stop_light_post_482" color="green"/>
+       <key value="113" model="stop_light_post_485" color="green"/>
+       <key value="113" model="stop_light_post_479" color="red"/>
+
+       <!-- A -->
+       <key value="97" model="stop_light_post_475" color="green"/>
+       <key value="97" model="stop_light_post_482" color="red"/>
+       <key value="97" model="stop_light_post_485" color="red"/>
+       <key value="97" model="stop_light_post_479" color="green"/>
+
+       <!-- W -->
+       <key value="119" model="stop_light_post_476" color="red"/>
+       <key value="119" model="stop_light_post_483" color="green"/>
+       <key value="119" model="stop_light_post_480" color="red"/>
+
+       <!-- S -->
+       <key value="115" model="stop_light_post_476" color="green"/>
+       <key value="115" model="stop_light_post_483" color="red"/>
+       <key value="115" model="stop_light_post_480" color="green"/>
+
+       <!-- E -->
+       <key value="101" model="stop_light_post_477" color="red"/>
+       <key value="101" model="stop_light_post_486" color="green"/>
+       <key value="101" model="stop_light_post_481" color="red"/>
+
+       <!-- D -->
+       <key value="100" model="stop_light_post_477" color="green"/>
+       <key value="100" model="stop_light_post_486" color="red"/>
+       <key value="100" model="stop_light_post_481" color="green"/>
+
+       <!-- R -->
+       <key value="114" model="stop_light_post_478" color="red"/>
+       <key value="114" model="stop_light_post_484" color="green"/>
+       <key value="114" model="stop_light_post_487" color="green"/>
+
+       <!-- F -->
+       <key value="102" model="stop_light_post_478" color="green"/>
+       <key value="102" model="stop_light_post_484" color="red"/>
+       <key value="102" model="stop_light_post_487" color="red"/>
+
+     </plugin>
+    </gui>
+
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <scene>
+      <grid>false</grid>
+      <origin_visual>false</origin_visual>
+      <ambient>0.592 0.624 0.635 1</ambient>
+      <sky>
+        <clouds>
+          <speed>12</speed>
+        </clouds>
+      </sky> 
+      <background>0.35 0.35 0.35 1.0</background>
+    </scene>
+
+    <physics type='ode'>
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>1000</iters>
+          <sor>1.3</sor>
+        </solver>
+        <constraints>
+          <cfm>0</cfm>
+          <erp>0.2</erp>
+          <contact_max_correcting_vel>100</contact_max_correcting_vel>
+          <contact_surface_layer>0.001</contact_surface_layer>
+        </constraints>
+      </ode>
+      <max_step_size>0.01</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>100</real_time_update_rate>
+      <gravity>0 0 -9.8</gravity>
+    </physics>
+
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <latitude_deg>47.3667</latitude_deg>
+      <longitude_deg>8.5500</longitude_deg>
+      <elevation>500.0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
+    <!-- A global light source -->
+    <light type="directional" name="sun">
+      <pose>0 0 1000 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.5 0.5 0.5 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.4</direction>
+    </light>
+
+<include>
+      <name>parking_garage_1_1</name>
+      <pose>
+      150
+      480
+      1
+      0
+      0
+      0
+      </pose>
+      <uri>model://parking_garage</uri>
+    </include>
+
+<include>
+      <name>parking_garage_1_2</name>
+      <pose>
+      150
+      480
+      45.01
+      0
+      0
+      0
+      </pose>
+      <uri>model://parking_garage</uri>
+    </include>
+
+<include>
+      <name>parking_garage_2</name>
+      <pose>
+      -295
+      555
+      1
+      0
+      0
+      0
+      </pose>
+      <uri>model://parking_garage</uri>
+    </include>
+
+<include>
+      <name>parking_garage_3</name>
+      <pose>
+      -165
+      -110
+      1
+      0
+      0
+      0
+      </pose>
+      <uri>model://parking_garage</uri>
+    </include>
+
+<include>
+      <name>parking_garage_4</name>
+      <pose>
+      -700
+      470
+      1
+      0
+      0
+      0
+      </pose>
+      <uri>model://parking_garage</uri>
+    </include>
+
+<include>
+      <name>parking_garage_5</name>
+      <pose>
+      -585
+      75
+      1
+      0
+      0
+      0
+      </pose>
+      <uri>model://parking_garage</uri>
+    </include>
+
+<include>
+      <name>parking_garage_6</name>
+      <pose>
+      425
+      55
+      1
+      0
+      0
+      0
+      </pose>
+      <uri>model://parking_garage</uri>
+    </include>
+
+
+<!-- The protected area-->
+ <include>
+      <name>radio_tower_1</name>
+      <pose>
+      0
+      0
+      1
+      0
+      0
+      0
+      </pose>
+      <uri>model://radio_tower</uri>
+    </include>
+
+<!-- The safe area-->
+<include>
+      <name>robocup_3Dsim_field_90</name>
+      <pose>
+      500.5
+      750.6
+      1
+      0
+      0
+      1.57
+      </pose>
+      <uri>model://robocup_3Dsim_field</uri>
+    </include>
+
+
+  </world>
+</sdf>
