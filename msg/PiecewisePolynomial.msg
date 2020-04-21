@@ -1,3 +1,3 @@
 # Piecewise Polynomial Trajectory
 
-Polynomial[] Polynomial
+Polynomial[] polynomial
