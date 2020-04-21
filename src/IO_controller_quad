@@ -113,7 +113,7 @@ def IOcallback(msg):
     if t0 is not np.inf:
         if (t0 <= rosTime):
             temp = rosTime - t0
-            t = temp.to_sec() + 1e-9*temp.to_nsec()
+            t = temp.to_sec() # + 1e-9*temp.to_nsec()
         else:
             t = 0.0
     else:
