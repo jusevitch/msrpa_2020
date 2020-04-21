@@ -7909,7 +7909,7 @@
     <!-- Block 1 0 -->
 
     <include>
-      <name>pine_tree_239</name>
+      <name>pine_tree_239_roverobstacle</name>
       <pose>
       19.71769629986509
       87.64957099026327
@@ -7922,7 +7922,7 @@
     </include>
 
     <include>
-      <name>pine_tree_240</name>
+      <name>pine_tree_240_roverobstacle</name>
       <pose>
       21.952339063894648
       64.50972358970539
@@ -7935,7 +7935,7 @@
     </include>
 
     <include>
-      <name>pine_tree_241</name>
+      <name>pine_tree_241_roverobstacle</name>
       <pose>
       0.006266023326933379
       74.15612617855041
@@ -7948,7 +7948,7 @@
     </include>
 
     <include>
-      <name>pine_tree_242</name>
+      <name>pine_tree_242_roverobstacle</name>
       <pose>
       -1.007879046939883
       81.33988980838224
@@ -7961,7 +7961,7 @@
     </include>
 
     <include>
-      <name>pine_tree_243</name>
+      <name>pine_tree_243_roverobstacle</name>
       <pose>
       -1.0911932221214684
       60.25977464354172
@@ -7974,7 +7974,7 @@
     </include>
 
     <include>
-      <name>pine_tree_244</name>
+      <name>pine_tree_244_roverobstacle</name>
       <pose>
       34.1784020589725
       78.73034031066507
@@ -7986,8 +7986,8 @@
       <uri>model://pine_tree</uri>
     </include>
 
-    <include>
-      <name>pine_tree_245</name>
+<!--     <include>
+      <name>pine_tree_245_roverobstacle</name>
       <pose>
       -5.042576532936491
       63.251153003146705
@@ -7997,10 +7997,10 @@
       1.6805715562647003
       </pose>
       <uri>model://pine_tree</uri>
-    </include>
+    </include> -->
 
     <include>
-      <name>pine_tree_246</name>
+      <name>pine_tree_246_roverobstacle</name>
       <pose>
       9.109202348593735
       61.53305689516471
@@ -8013,7 +8013,7 @@
     </include>
 
     <include>
-      <name>pine_tree_247</name>
+      <name>pine_tree_247_roverobstacle</name>
       <pose>
       -5.831426848263592
       63.812582241338255
@@ -8026,7 +8026,7 @@
     </include>
 
     <include>
-      <name>pine_tree_248</name>
+      <name>pine_tree_248_roverobstacle</name>
       <pose>
       26.277846480264664
       87.61267361041394
@@ -8039,7 +8039,7 @@
     </include>
 
     <include>
-      <name>pine_tree_249</name>
+      <name>pine_tree_249_roverobstacle</name>
       <pose>
       13.047067862435101
       80.02928048304216
@@ -8052,7 +8052,7 @@
     </include>
 
     <include>
-      <name>pine_tree_250</name>
+      <name>pine_tree_250_roverobstacle</name>
       <pose>
       24.95750677369803
       74.03660165765544
@@ -8065,7 +8065,7 @@
     </include>
 
     <include>
-      <name>pine_tree_251</name>
+      <name>pine_tree_251_roverobstacle</name>
       <pose>
       29.236717755298308
       54.219373979508276
@@ -8078,7 +8078,7 @@
     </include>
 
     <include>
-      <name>pine_tree_252</name>
+      <name>pine_tree_252_roverobstacle</name>
       <pose>
       28.710214055454557
       63.03079847709189
@@ -8091,7 +8091,7 @@
     </include>
 
     <include>
-      <name>pine_tree_253</name>
+      <name>pine_tree_253_roverobstacle</name>
       <pose>
       14.46209262072975
       91.53803806364344
@@ -8104,7 +8104,7 @@
     </include>
 
     <include>
-      <name>pine_tree_254</name>
+      <name>pine_tree_254_roverobstacle</name>
       <pose>
       10.595490612211721
       71.28766167720988
@@ -8117,7 +8117,7 @@
     </include>
 
     <include>
-      <name>pine_tree_255</name>
+      <name>pine_tree_255_roverobstacle</name>
       <pose>
       5.172899713922266
       81.0929318231327
@@ -11060,7 +11060,7 @@
     <!-- East block -->
 
     <include>
-      <name>powerplant_463</name>
+      <name>powerplant_463_quadobstacle</name>
       <pose>
       15.57
       -134.33
