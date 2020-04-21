@@ -9,6 +9,10 @@ project(msrpa_2020)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   std_msgs
+  rospy
+  message_generation
+  geometry_msgs
+  gazebo_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -103,7 +107,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES msrpa_2020
-#  CATKIN_DEPENDS std_msgs
+  CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
 

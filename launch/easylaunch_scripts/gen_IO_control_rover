@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+
+# 
+#      ____  ___   _____ ______   __          __    
+#     / __ \/   | / ___// ____/  / /   ____ _/ /_   
+#    / / / / /| | \__ \/ /      / /   / __ `/ __ \  
+#   / /_/ / ___ |___/ / /___   / /___/ /_/ / /_/ /  
+#  /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
+#                                                   
+# 
+# Author: James Usevitch
+# 
+# Description: This file is uses EasyLaunch to generate a launch file for one
+#              R1 rover with an IO_controller in Gazebo. Run directly in the
+#              terminal passing the desired output file name as an argument.
+# 
+
+
+import sys
+
+## Append easylaunch directory to path
+## !!! PUT THE PATH TO THE EASYLAUNCH FILE HERE !!!
+sys.path.append('/media/james/Data/code2/easylaunch')
+
+import easylaunch as EL
+from numpy import cos, sin
+
+# Parameters
+
+
+
+
+# Construct the launch file
+
+
+launch = EL.launchFile()
+
+# Global launch arguments. Need to rename this in easylaunch.py sometime.
+
+launch.arg = {
+   "x": "0.0",
+   "y": "0.0",
+   "z": "0.0",
+   "robot_namespace": "rover0",
+   "name": "rover0",
+   "output": "screen"
+}
+
+# Include files
+
+gazebo_include = EL.include(file="$(find gazebo_ros)/launch/empty_world.launch")
+
+rover_include = EL.include(file="$(find msrpa_2020)/launch/spawn_rover.launch")
+rover_include.ns = "rover0"
+rover_include.defarg = ["x", "y", "z", "robot_namespace", "name", "output"]
+# rover_include.arg = {
+#     "x": str(0.0),
+#     "y": str(0.0),
+#     "z": str(0.1),
+#     "robot_namespace": "rover0",
+#     "name": "rover0"
+# }
+
+launch.include = [gazebo_include, rover_include]
+
+# Node files
+
+IO_node = EL.node(name="IO_ctrl_rover0", pkg="msrpa_2020", type="IO_controller_R1")
+IO_node.args = "--rover_namespace $(arg robot_namespace)"
+IO_node.output = "screen"
+IO_node.ns = "rover0"
+
+number_of_cubes = 2
+
+cube_list = [EL.node(name="obstacle"+str(i), pkg="gazebo_ros", type="spawn_model") for i in range(number_of_cubes)]
+
+for i in range(number_of_cubes):
+    cube_list[i].args = """
+        -file $(find msrpa_2020)/models/unit_box/model.sdf
+        -sdf
+        -model obstacle{0}
+        -x {1}
+        -y {2}
+    """.format(
+            str(i),
+            str(5*cos(i*2*3.14 / number_of_cubes)),
+            str(5*sin(i*2*3.14 / number_of_cubes))
+        )
+
+# cube = EL.node(name="obstacle1", pkg="gazebo_ros", type="spawn_model")
+# cube.args = """
+#     -file $(find msrpa_2020)/models/unit_box/model.sdf
+#     -sdf
+#     -model obstacle1
+#     -x 0.0
+#     -y 5.5
+# """
+
+launch.node = [IO_node] + cube_list
+
+# Write the file to XML
+
+if __name__ == "__main__":
+    # Command line option
+    if len(sys.argv) > 1:
+        launchfile_name = sys.argv[1] # Must be 1. The 0th entry of the array will be "msrpa_only.py".
+    else:
+        launchfile_name = "../" + str(n) + "quad_rover_obstacle.launch"
+    
+    launch.write(filename=launchfile_name, verbose=True)
