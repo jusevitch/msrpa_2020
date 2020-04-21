@@ -1,0 +1,25 @@
+<?xml version="1.0" ?>
+<launch>
+  <arg default="$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro" name="model"/>
+  <arg default="controller/attitude  controller/velocity  controller/position" name="controllers"/>
+  <include file="$(find gazebo_ros)/launch/empty_world.launch"/>
+  <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" ns="quad0">
+    <arg name="model" value="$(arg model)"/>
+    <arg name="controllers" value="$(arg controllers)"/>
+    <arg name="name" value="quad0"/>
+    <arg name="tf_prefix" value="quad0"/>
+    <arg name="x" value="10.0"/>
+    <arg name="y" value="0.0"/>
+  </include>
+  <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" ns="quad1">
+    <arg name="model" value="$(arg model)"/>
+    <arg name="controllers" value="$(arg controllers)"/>
+    <arg name="name" value="quad1"/>
+    <arg name="tf_prefix" value="quad1"/>
+    <arg name="x" value="-9.999987317275394"/>
+    <arg name="y" value="0.01592652916486828"/>
+  </include>
+  <node args="--quad_namespace quad0 --formation_x 3.0 --formation_y 0.0" name="IO_ctrl_quad0" ns="quad0" output="screen" pkg="msrpa_2020" type="IO_controller_quad"/>
+  <node args="--quad_namespace quad1 --formation_x -2.9999961951826184 --formation_y 0.004777958749460485" name="IO_ctrl_quad1" ns="quad1" output="screen" pkg="msrpa_2020" type="IO_controller_quad"/>
+</launch>
+

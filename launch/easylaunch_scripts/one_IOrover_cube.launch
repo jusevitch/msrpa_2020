@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<launch>
+  <arg default="0.0" name="x"/>
+  <arg default="0.0" name="y"/>
+  <arg default="0.0" name="z"/>
+  <arg default="rover0" name="robot_namespace"/>
+  <arg default="rover0" name="name"/>
+  <arg default="screen" name="output"/>
+  <include file="$(find gazebo_ros)/launch/empty_world.launch"/>
+  <include file="$(find msrpa_2020)/launch/spawn_rover.launch" ns="rover0">
+    <arg name="x" value="$(arg x)"/>
+    <arg name="y" value="$(arg y)"/>
+    <arg name="z" value="$(arg z)"/>
+    <arg name="robot_namespace" value="$(arg robot_namespace)"/>
+    <arg name="name" value="$(arg name)"/>
+    <arg name="output" value="$(arg output)"/>
+  </include>
+  <node args="--rover_namespace $(arg robot_namespace)" name="IO_ctrl_rover0" ns="rover0" output="screen" pkg="msrpa_2020" type="IO_controller_R1"/>
+  <node args="
+    -file $(find msrpa_2020)/models/unit_box/model.sdf
+    -sdf
+    -model obstacle1
+    -x 0.0
+    -y 5.5
+" name="obstacle1" pkg="gazebo_ros" type="spawn_model"/>
+</launch>
+
