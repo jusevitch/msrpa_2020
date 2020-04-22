@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+
+# 
+#      ____  ___   _____ ______   __          __    
+#     / __ \/   | / ___// ____/  / /   ____ _/ /_   
+#    / / / / /| | \__ \/ /      / /   / __ `/ __ \  
+#   / /_/ / ___ |___/ / /___   / /___/ /_/ / /_/ /  
+#  /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
+#                                                   
+# 
+# Author: James Usevitch
+# 
+# Description: This file launches the MSRPA simulation node.
+#
+#
+# 
+
+
+import sys
+
+## Append easylaunch directory to path
+## !!! PUT THE PATH TO THE EASYLAUNCH FILE HERE !!!
+sys.path.append('/media/james/Data/code2/easylaunch')
+
+import easylaunch as EL
+from numpy import cos, sin
+
+# Parameters
+
+n_quads = 2
+n_rovers = 2
+leader_list = [0,2]
+malicious_list = [1]
+
+input_Hz = 3
+eta = 10
+F = 1
+
+# AGENT NUMBERING:
+#
+# This approach assumes the following numbering:
+# Quads are named quad_0 ... quad_(n_quads-1)
+# Rovers are named rover_(n_quads) ... rover_(n_quads + n_rovers - 1)
+# 
+# FOR EXAMPLE, if 2 quads, 2 rovers then the agent list is
+# quad0, quad1, rover2, rover3
+
+
+launch = EL.launchFile()
+
+msrpa = EL.node(name="MSRPA", pkg="msrpa_2020", type="msrpa")
+msrpa.output = "screen"
+msrpa.args = f"--n_quads {n_quads} --n_rovers {n_rovers} --input_Hz {input_Hz} --eta {eta} --F {F}"
+
+if len(leader_list) > 0:
+    leader_list_string = ' '.join(str(i) for i in leader_list)
+    msrpa.args += f" --leader_list {leader_list_string}"
+
+if len(malicious_list) > 0:
+    malicious_list_string = ' '.join(str(i) for i in malicious_list)
+    msrpa.args += f" --malicious_list {malicious_list_string}"
+
+
+
+launch.node = [msrpa]
+
+
+# Write the file to XML
+
+if __name__ == "__main__":
+    # Command line option
+    if len(sys.argv) > 1:
+        launchfile_name = sys.argv[1] # Must be 1. The 0th entry of the array will be "msrpa_only.py".
+    else:
+        launchfile_name = "../" + "msrpa.launch"
+    
+    launch.write(filename=launchfile_name, verbose=True)
+
