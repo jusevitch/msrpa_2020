@@ -5,10 +5,10 @@
   <arg name="enable_ground_truth" default="true"/>
   <arg name="paused" value="false"/>
 
-  <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find hector_gazebo_worlds)/models"/>
-  <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find hector_gazebo_worlds)/models"/>
+  <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find msrpa_2020)/gazebo/models"/>
+  <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find msrpa_2020)/gazebo/models"/>
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find hector_gazebo_worlds)/worlds/$(arg world_name).world"/>
+    <arg name="world_name" value="$(find msrpa_2020)/gazebo/worlds/$(arg world_name).world"/>
     <!--<arg name="world_name" value="$(find rcomv_uav)/worlds/$(arg world_name).world"/>-->
     <!-- <arg name="debug" value="true"/> -->
     <arg name="paused" value="$(arg paused)"/>
