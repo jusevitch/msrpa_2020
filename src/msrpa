@@ -57,38 +57,38 @@ class MSRPA_node:
 
         self.pubtopics = ["quad" + str(nq) for nq in range(n_quads)]
         self.pubtopics += ["rover" + str(n_quads + nr) for nr in range(n_rovers)]
-
         self.publist = [rospy.Publisher(topic, SimpleMSRPA, queue_size=1) for topic in self.pubtopics]
+
+        self.leader_sub = rospy.Subscriber("leader_MSRPA", SimpleMSRPA, self.change_leader_message)
 
         self.timer = rospy.Timer(rospy.Duration(1.0/input_Hz), self.MSRPA_callback)
         
-        self.received_messages = [None]*self.n    # Preallocation. May or may not help.
+        self.received_messages = [SimpleMSRPA() for i in range(self.n)]    # Preallocation. May or may not help.
+        print("\nself.received_messages")
+        print(self.received_messages)
 
-        # MSRPA Message types:
-        # 0 : No message
-        # 1 : Normal leader message (the nominal message)
-        # All other messages: adversarial messages
-        # 
-        # These values are stored in the broadcasted_matrix / accepted matrix to save on
-        # processing speed.
-        # TODO :
-
-        self.MSRPA_types = {
-            1: leader_message,
-        }
+        self.empty_msg = SimpleMSRPA() # For comparison purposes
 
         # TODO : Fix the below
         self.MSRPA_list = [SimpleMSRPA() for i in range(self.n)]
         for i in self.leader_list:
             self.MSRPA_list[i] = leader_message
 
-        
         for j in self.malicious_list:
-            self.MSRPA_list[j] = self.gen_malicious_message(j)
+            # self.MSRPA_list[j] = self.gen_malicious_message(j)
+            self.MSRPA_list[j] = SimpleMSRPA()
+            self.MSRPA_list[j].trajectory_type = "linear"
+            self.MSRPA_list[j].data = [10, 4, 5, 11]
 
+
+
+
+   
     def MSRPA_callback(self, leader_messages):
         # Do the main callback function
         
+        print("\nself.MSRPA_list:")
+        print(self.MSRPA_list)
 
         # Reset at intervals of eta
         if self.timestep == 0:
@@ -105,10 +105,15 @@ class MSRPA_node:
             print("\nReceived from, i={}".format(i))
             print(received_from)
 
-        # Receive
-        
+            
+            self.select_message(i, self.received_messages[i])
 
-        #
+
+        # Send to Publishers 
+        for j in range(self.n):
+            if self.MSRPA_list[j] != self.empty_msg:
+                self.publist[j].publish(self.MSRPA_list[j])
+        
 
         self.timestep += 1
         self.timestep %= eta
@@ -117,19 +122,27 @@ class MSRPA_node:
         print("\nBroadcast_matrix at timestep {}".format(self.timestep))
         print(self.broadcast_matrix)
 
+        print("\nsefl.MSRPA_list:")
+        print(self.MSRPA_list)
 
 
 
     def select_message(self, number, received_messages):
         # Return None if there aren't at least 2F+1 messages
         if len(received_messages) < (2*F+1):
+            print("\nNumber of received messages was too low for agent {}".format(number))
             return None
-            
-        count = Counter([n.name for n in received_messages])
-        # Return None if there aren't at least F+1 messages of the same type
+        
+        print(received_messages)
+        count = Counter([n.trajectory_type for n in received_messages])
+        del count['']
+        
+        # Return None if there aren't at least F+1 messages of the same trajectory type
         if count.most_common()[0][1] < (F+1):
+            print("\nMost common was {} for agent {}".format(count.most_common()[0][0], number))
             return None
 
+        print("This happened for number={}".format(number))
         # Collect all messages of the most common type
         msg_type = count.most_common()[0][0]
         matching_types = [msg for msg in received_messages if msg.trajectory_type == msg_type]
@@ -143,19 +156,13 @@ class MSRPA_node:
         self.MSRPA_list[number].trajectory_type = msg_type
         self.MSRPA_list[number].data = median_matrix.tolist()
 
+        # Update the broadcast matrix
+        self.broadcast_matrix[:,number] = self.A[:,number]
 
     
-    def msg_is_equal(self, msg1, msg2):
-        # Tests if two messages are equal
-
-        if msg1.trajectory_type != msg2.trajectory_type:
-            return False
-        else:
-            if any(msg1.data[i] != msg2.data[i] for i in range(len(msg1.data))):
-                return False
-
-        return True
-        
+    def change_leader_message(self,msg):
+        for i in self.leader_list:
+            self.MSRPA_list[i] = msg
 
 
     def gen_malicious_message(self, number, malicious_message=SimpleMSRPA()):
@@ -236,18 +243,20 @@ if __name__ == "__main__":
     if args.input_Hz is not None:
         input_Hz = args.input_Hz
 
-    
+    leader_message = SimpleMSRPA()
+    leader_message.trajectory_type = "linear"
+    leader_message.data = [1.0, 2.0, 3.0, 4.0]
 
     try:
         rospy.init_node('MSRPA_master')
 
         n = n_quads + n_rovers
 
-        while(not rospy.has_param('Adjacency_matrix')):
+        while(not rospy.has_param('/Adjacency_matrix')):
             print("\nMSRPA node: Waiting for Adjacency_matrix parameter...")
             rospy.sleep(1)
 
-        A = parse_Adjacency(rospy.get_param("Adjacency_matrix"))
+        A = parse_Adjacency(rospy.get_param("/Adjacency_matrix"))
         print("\nA matrix:")
         print(A)
 
@@ -259,7 +268,8 @@ if __name__ == "__main__":
             input_Hz=input_Hz,
             eta=eta,
             F=F,
-            A=A
+            A=A,
+            leader_message=leader_message
        )
 
         rospy.spin()

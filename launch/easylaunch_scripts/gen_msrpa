@@ -29,8 +29,8 @@ from scipy.linalg import circulant
 
 # Parameters
 
-n_quads = 3
-n_rovers = 2
+n_quads = 5
+n_rovers = 5
 leader_list = [0,2]
 malicious_list = [1]
 
@@ -39,8 +39,8 @@ eta = 10
 F = 1
 
 
-n = 5
-k = 4
+n = n_quads + n_rovers
+k = 3
 
 
 # AGENT NUMBERING:
@@ -69,6 +69,7 @@ launch = EL.launchFile()
 msrpa = EL.node(name="MSRPA", pkg="msrpa_2020", type="msrpa")
 msrpa.output = "screen"
 msrpa.args = f"--n_quads {n_quads} --n_rovers {n_rovers} --input_Hz {input_Hz} --eta {eta} --F {F}"
+msrpa.ns = "MSRPA"
 
 if len(leader_list) > 0:
     leader_list_string = ' '.join(str(i) for i in leader_list)
