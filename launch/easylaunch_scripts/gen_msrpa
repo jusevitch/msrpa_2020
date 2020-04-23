@@ -23,11 +23,13 @@ import sys
 sys.path.append('/media/james/Data/code2/easylaunch')
 
 import easylaunch as EL
+import numpy as np
 from numpy import cos, sin
+from scipy.linalg import circulant
 
 # Parameters
 
-n_quads = 2
+n_quads = 3
 n_rovers = 2
 leader_list = [0,2]
 malicious_list = [1]
@@ -35,6 +37,11 @@ malicious_list = [1]
 input_Hz = 3
 eta = 10
 F = 1
+
+
+n = 5
+k = 4
+
 
 # AGENT NUMBERING:
 #
@@ -44,6 +51,17 @@ F = 1
 # 
 # FOR EXAMPLE, if 2 quads, 2 rovers then the agent list is
 # quad0, quad1, rover2, rover3
+
+
+
+## Helper Functions
+
+def kCirculant_string(k,n):
+    vec = circulant([1 if (i <= k and i != 0) else 0 for i in range(n)]).T  # Scipy does columnwise, so need to transpose it
+    print(vec)
+    return str(vec.flatten().tolist())
+
+
 
 
 launch = EL.launchFile()
@@ -60,9 +78,16 @@ if len(malicious_list) > 0:
     malicious_list_string = ' '.join(str(i) for i in malicious_list)
     msrpa.args += f" --malicious_list {malicious_list_string}"
 
-
+# A matrix as parameter
+A_string = kCirculant_string(k,n)
+msrpa.rosparam = {
+    "/Adjacency_matrix": A_string
+}
 
 launch.node = [msrpa]
+
+
+
 
 
 # Write the file to XML
