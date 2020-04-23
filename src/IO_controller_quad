@@ -33,7 +33,7 @@ from geometry_msgs.msg import Twist
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Quaternion
 from hector_uav_msgs.srv import EnableMotors, EnableMotorsResponse
-
+from msrpa_2020.msg import SimpleMSRPA
 
 
 ## Publishers
@@ -151,7 +151,7 @@ def IOcallback(msg):
 
         # Solve for center of formation and formation frame state
         if trajectory_type is not None:
-            formation_state, deriv_formation_state = traj_func[trajectory_type](t,c=(0,0,5), R=5, w=0.07)
+            formation_state, deriv_formation_state = traj_func[trajectory_type](t,c=(10.59,71.29,10), R=0, w=0.00)
             
             # Determine local target point and derivative as offset from the formational center
             # TODO: This assumes that the formation frame's xy plane is always parallel to global
@@ -165,12 +165,6 @@ def IOcallback(msg):
             p = state
             dp = np.zeros(3)
 
-        print("\np and dp:")
-        print(str(p) + ", " + str(dp))
-        print("\nCurrent state:")
-        print(state)
-        print("\nError:")
-        print(state - p[0:3])
 
         # print("\np minus formation_state for agent {0}:".format(quad_namespace))
         # print(p - formation_state[0:3])
@@ -362,6 +356,11 @@ def object_callback(msg):
    
    
 
+def MSRPA_callback(msg):
+    
+
+
+
 ## Calls main loop
 
 if __name__ == '__main__':
@@ -386,6 +385,7 @@ if __name__ == '__main__':
     parser.add_argument('--formation_y', type=float, help='The local formational y-axis offset of the agent in the formation frame.')
     parser.add_argument('--formation_z', type=float, help='The local formational z-axis offset of the agent in the formation frame.')
     parser.add_argument('--instant_start', action="store_true", help='Starts the trajectory immediately upon the node launching.')
+    parser.add_argument('--timeout', type=int, help='Number of seconds to wait for the "enable_motors" topic to appear.')
     args = parser.parse_args(myargv)
     
     if args.quad_namespace is not None:
@@ -403,13 +403,20 @@ if __name__ == '__main__':
     if args.formation_z is not None:
         local_offset[2] = args.formation_z
 
+    if args.timeout is not None:
+        timeout = args.timeout
+    else:
+        timeout = 90
+
     # if args.instant_start:
     #     t0 = rospy.get_rostime()
 
     # TODO: Find the publisher topic
     pub = rospy.Publisher('cmd_vel', Twist, queue_size=1) # Double check to make sure this has correct namespace later
 
-    rospy.wait_for_service('enable_motors', timeout=30)
+    MSRPA_sub = rospy.Subscriber(quad_namespace, SimpleMSRPA, MSRPA_callback)
+
+    rospy.wait_for_service('enable_motors', timeout=timeout)
     enable_motors = rospy.ServiceProxy('enable_motors', EnableMotors)
     response = enable_motors(True)
     if response.success:
