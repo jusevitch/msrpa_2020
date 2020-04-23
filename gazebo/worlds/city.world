@@ -7,6 +7,7 @@
   <world name="default">
     <plugin name="ros_interface_plugin" filename="librotors_gazebo_ros_interface_plugin.so"/>
 
+    <gravity>0 0 -9.8</gravity>
 
     <plugin name="joy" filename="libJoyPlugin.so">
       <sticky_buttons>false</sticky_buttons>
@@ -102,7 +103,6 @@
       <max_step_size>0.01</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>100</real_time_update_rate>
-      <gravity>0 0 -9.8</gravity>
     </physics>
 
     <spherical_coordinates>
