@@ -21,7 +21,7 @@ import sys
 import numpy as np
 import argparse
 from copy import deepcopy
-from msrpa_2020.msg import SimpleMSRPA
+from msrpa_2020.msg import SimpleMSRPA, NoiseSimpleMSRPA
 from collections import Counter # For efficiently counting message types
 
 # AGENT NUMBERING:
@@ -59,7 +59,7 @@ class MSRPA_node:
         self.pubtopics += ["rover" + str(n_quads + nr) for nr in range(n_rovers)]
         self.publist = [rospy.Publisher(topic, SimpleMSRPA, queue_size=1) for topic in self.pubtopics]
 
-        self.leader_sub = rospy.Subscriber("leader_MSRPA", SimpleMSRPA, self.change_leader_message)
+        self.leader_sub = rospy.Subscriber("leader_MSRPA", NoiseSimpleMSRPA, self.change_leader_message)
 
         self.timer = rospy.Timer(rospy.Duration(1.0/input_Hz), self.MSRPA_callback)
         
@@ -160,9 +160,20 @@ class MSRPA_node:
         self.broadcast_matrix[:,number] = self.A[:,number]
 
     
-    def change_leader_message(self,msg):
-        for i in self.leader_list:
-            self.MSRPA_list[i] = msg
+    def change_leader_message(self, msg):
+        variance = 1.0
+        if msg.noise:
+            data = np.array(msg.data)
+            mean = msg.mean
+            if msg.variance != 0:
+                variance = msg.variance 
+
+            for i in self.leader_list:
+                perturbed_data = data + np.sqrt(variance)*np.random.randn(data.size) + msg.mean
+                self.MSRPA_list[i] = SimpleMSRPA(trajectory_type=msg.trajectory_type, data=perturbed_data.tolist())
+        else:    
+            for i in self.leader_list:
+                self.MSRPA_list[i] = msg
 
 
     def gen_malicious_message(self, number, malicious_message=SimpleMSRPA()):
@@ -202,6 +213,9 @@ def parse_Adjacency(flat_A):
 
 
 if __name__ == "__main__":
+
+    np.random.seed()
+
     # Takes inputs from command line. 
     # Note that any unexpected inputs passed into argparse will throw an error.
 
