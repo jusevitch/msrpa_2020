@@ -25,6 +25,7 @@ from scipy.sparse import csc_matrix
 import tf.transformations as trans # For quaternion operations
 import argparse
 from copy import deepcopy
+from warnings import warn
 
 import trajectory
 
@@ -46,6 +47,8 @@ class IO_controller_quad:
     
     patterns = ['rover', 'quad','obstacle']
 
+    # TODO: Find the publisher topic
+    pub = rospy.Publisher('cmd_vel', Twist, queue_size=1) # Double check to make sure this has correct namespace later
 
     def __init__(self,
         local_offset = np.zeros(3),
@@ -75,7 +78,7 @@ class IO_controller_quad:
         self.local_offset = local_offset
         
         self.kp = kp
-        self.kp = kd
+        self.kd = kd
         self.delta = 1
         self.P = P
 
@@ -98,6 +101,7 @@ class IO_controller_quad:
 
         rospy.Subscriber(subscriber_topic, ModelStates, self.object_callback)
         rospy.Timer(rospy.Duration(1.0/input_Hz), self.IOcallback)
+        MSRPA_sub = rospy.Subscriber('/MSRPA/' + self.quad_namespace, SimpleMSRPA, self.MSRPA_callback)
 
 #    ## Main function
 
@@ -139,15 +143,19 @@ class IO_controller_quad:
     
                 # Find the indices for all rovers, quads, and objects specifically labeled "obstacle"
                 # The array 'patterns' is defined above in the global scope
-                reduced_indices = [currentObjectStates.name.index(s) for s in currentObjectStates.name if any(xs in s for xs in patterns)]
+                reduced_indices = [currentObjectStates.name.index(s) for s in currentObjectStates.name if any(xs in s for xs in self.patterns)]
                 
                 # Remove the index for this agent's own information
                 if state_index in reduced_indices:
                     reduced_indices.remove(state_index)
+
     
                 # Solve for center of formation and formation frame state
-                if trajectory_type is not None:
-                    formation_state, deriv_formation_state = self.traj_func[self.trajectory_type](t,self.trajectory_data)
+                if self.trajectory_type is not None and self.trajectory_data is not None:
+                    if self.trajectory_type == "circular":
+                        formation_state, deriv_formation_state = self.traj_func[self.trajectory_type](time_now - self.t0,self.trajectory_data)
+                    else:
+                        formation_state, deriv_formation_state = self.traj_func[self.trajectory_type](t,self.trajectory_data)
                     
                     # Determine local target point and derivative as offset from the formational center
                     # TODO: This assumes that the formation frame's xy plane is always parallel to global
@@ -160,6 +168,13 @@ class IO_controller_quad:
                 else:
                     p = self.state
                     dp = np.zeros(3)
+
+                    if self.trajectory_type is None and self.trajectory_data is None:
+                        print("Variables 'trajectory_type' and 'trajectory_data' are None.")
+                    elif self.trajectory_type is None:
+                        print("Variable 'trajectory_type' is None.")
+                    else:
+                        print("Variable 'trajectory_data' is None.")
     
     
                 # print("\np minus formation_state for agent {0}:".format(self.quad_namespace))
@@ -174,7 +189,7 @@ class IO_controller_quad:
                 #       Need to create a parameter server which lists the safety radii of all nodes.
                 # OSQP assumes the form (1/2)u^T P u + q^T u
                 self.R = 1.0
-                Ro = 1.0
+                Ro = 2 
     
     
                 # # print("\nreduced_indices:")
@@ -189,7 +204,7 @@ class IO_controller_quad:
                         obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y, currentObjectStates.pose[idx].position.z])
     
                         A[i,:] = -1.0*dhdx(self.state,obstacle_state)
-                        bvec[i] = delta*h(self.state,obstacle_state,R,Ro)
+                        bvec[i] = self.delta*h(self.state,obstacle_state,self.R,Ro)
     
                     # Add the infinity norm input constraints
                     # A = np.append(A,Au,axis=0) # for untransformed inputs
@@ -206,7 +221,7 @@ class IO_controller_quad:
                 else:
                     q = -uhat
                     model = osqp.OSQP()
-                    model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
+                    model.setup(P=self.P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
                       
                     results = model.solve()
     
@@ -223,7 +238,7 @@ class IO_controller_quad:
                 self.vel_msg.linear.y = u[1]
                 self.vel_msg.linear.z = u[2]
     
-                pub.publish(self.vel_msg)
+                self.pub.publish(self.vel_msg)
     
             # Debug
             # else:
@@ -253,7 +268,11 @@ class IO_controller_quad:
    
    
 
-    # def MSRPA_callback(self, msg):
+    def MSRPA_callback(self, msg):
+        self.trajectory_type = msg.trajectory_type
+        self.trajectory_data = msg.data
+        self.t0 = msg.data[0]
+        self.t1 = msg.data[1]
 
 
 ## Helper functions
@@ -387,6 +406,8 @@ if __name__ == '__main__':
     parser.add_argument('--instant_start', action="store_true", help='Starts the trajectory immediately upon the node launching.')
     parser.add_argument('--timeout', type=int, help='Number of seconds to wait for the "enable_motors" topic to appear.')
     parser.add_argument('--umax', type=float, help='Maximum infinity norm control input for quadrotors')
+    parser.add_argument('--kd', type=float, help='Derivative gain')
+    parser.add_argument('--kp', type=float, help='Proportional gain')
     args = parser.parse_args(myargv)
     
     if args.quad_namespace is not None:
@@ -416,16 +437,14 @@ if __name__ == '__main__':
     else:
         umax = 1
 
+    if args.kp is not None:
+        kp = args.kp
+
+    if args.kd is not None:
+        kd = args.kd
+
     Au = np.array([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
     bu = np.array([umax, umax, umax, umax, umax, umax])
-
-    # if args.instant_start:
-    #     t0 = rospy.get_rostime()
-
-    # TODO: Find the publisher topic
-    pub = rospy.Publisher('cmd_vel', Twist, queue_size=1) # Double check to make sure this has correct namespace later
-
-    # MSRPA_sub = rospy.Subscriber(quad_namespace, SimpleMSRPA, MSRPA_callback)
 
     rospy.wait_for_service('enable_motors', timeout=timeout)
     enable_motors = rospy.ServiceProxy('enable_motors', EnableMotors)
@@ -435,6 +454,8 @@ if __name__ == '__main__':
             rospy.init_node('quad_qp_control')
     
             IO_node = IO_controller_quad(
+                kp=kp,
+                kd=kd,
                 Au=Au,
                 bu=bu,
                 umax=umax,

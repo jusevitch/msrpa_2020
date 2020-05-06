@@ -52,8 +52,8 @@ class MSRPA_node:
 
         self.broadcast_matrix = np.zeros(self.A.shape)
         self.broadcast_matrix[:,self.leader_list] = self.A[:,self.leader_list]
-        print("\nBroadcast matrix:")
-        print(self.broadcast_matrix)
+        #print("\nBroadcast matrix:")
+        #print(self.broadcast_matrix)
 
         self.pubtopics = ["quad" + str(nq) for nq in range(n_quads)]
         self.pubtopics += ["rover" + str(n_quads + nr) for nr in range(n_rovers)]
@@ -64,8 +64,8 @@ class MSRPA_node:
         self.timer = rospy.Timer(rospy.Duration(1.0/input_Hz), self.MSRPA_callback)
         
         self.received_messages = [SimpleMSRPA() for i in range(self.n)]    # Preallocation. May or may not help.
-        print("\nself.received_messages")
-        print(self.received_messages)
+        #print("\nself.received_messages")
+        #print(self.received_messages)
 
         self.empty_msg = SimpleMSRPA() # For comparison purposes
 
@@ -87,8 +87,8 @@ class MSRPA_node:
     def MSRPA_callback(self, leader_messages):
         # Do the main callback function
         
-        print("\nself.MSRPA_list:")
-        print(self.MSRPA_list)
+        #print("\nself.MSRPA_list:")
+        #print(self.MSRPA_list)
 
         # Reset at intervals of eta
         if self.timestep == 0:
@@ -102,8 +102,8 @@ class MSRPA_node:
         for i in self.normal_list:
             received_from = np.nonzero(self.broadcast_matrix[i,:])[0]
             self.received_messages[i] = [self.MSRPA_list[j] for j in received_from]
-            print("\nReceived from, i={}".format(i))
-            print(received_from)
+            #print("\nReceived from, i={}".format(i))
+            #print(received_from)
 
             
             self.select_message(i, self.received_messages[i])
@@ -118,12 +118,12 @@ class MSRPA_node:
         self.timestep += 1
         self.timestep %= eta
 
-        print("\ntimestep: {}".format(self.timestep))
-        print("\nBroadcast_matrix at timestep {}".format(self.timestep))
-        print(self.broadcast_matrix)
+        #print("\ntimestep: {}".format(self.timestep))
+        #print("\nBroadcast_matrix at timestep {}".format(self.timestep))
+        #print(self.broadcast_matrix)
 
-        print("\nsefl.MSRPA_list:")
-        print(self.MSRPA_list)
+        #print("\nsefl.MSRPA_list:")
+        #print(self.MSRPA_list)
 
 
 
@@ -142,7 +142,7 @@ class MSRPA_node:
             print("\nMost common was {} for agent {}".format(count.most_common()[0][0], number))
             return None
 
-        print("This happened for number={}".format(number))
+        #print("This happened for number={}".format(number))
         # Collect all messages of the most common type
         msg_type = count.most_common()[0][0]
         matching_types = [msg for msg in received_messages if msg.trajectory_type == msg_type]
@@ -250,16 +250,21 @@ if __name__ == "__main__":
 
     if args.leader_list is not None:
         leader_list = args.leader_list
+    else:
+        leader_list = []
 
     if args.malicious_list is not None:
         malicious_list = args.malicious_list
+    else:
+        malicious_list = []
 
     if args.input_Hz is not None:
         input_Hz = args.input_Hz
 
     leader_message = SimpleMSRPA()
-    leader_message.trajectory_type = "linear"
-    leader_message.data = [1.0, 2.0, 3.0, 4.0]
+    leader_message.trajectory_type = "circular"
+    # t0, t1, R, theta0, w, cx, cy, cz
+    leader_message.data = [0.0, 0.0, 5.0, 0.0, 0.1, 0.0, 0.0, 4.0]
 
     try:
         rospy.init_node('MSRPA_master')
