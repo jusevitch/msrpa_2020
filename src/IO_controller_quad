@@ -8,7 +8,7 @@
 #  /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
 #                                                   
 # 
-# author: james usevitch
+# Author: James Usevitch
 # 
 # Description: This file contains the input/output linearization controller for the
 #              Hector Quadrotor model in Gazebo. Obstacle avoidance and input constraint satisfaction
@@ -36,219 +36,228 @@ from hector_uav_msgs.srv import EnableMotors, EnableMotorsResponse
 from msrpa_2020.msg import SimpleMSRPA
 
 
-## Publishers
-
-
-
-## Variables setup
-
-state = np.zeros(3)
-
-local_offset = np.array([0,0,0])
-
-# Agent controller parameters
-# Gain tuning may be needed
-kp = 5
-kd = 1
-delta = 1 # Parameter for class-K function in QP
-
-# Objective function weights
-P = csc_matrix(np.identity(3)) 
-
-# Hz for how often input callback is called
-input_Hz = 10
-
-# Input constraints
-umax = 1;
-
-# Infinity norm bounds
-Au = np.array([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
-bu = np.array([umax, umax, umax, umax, umax, umax])
-
-
-# Trajectory setup
-t0 = np.inf # Initial time
-
-trajectory_type = "circular3D" # Types can be None, circular, square, polynomial
-
-traj_func = {
-    "circular2D": trajectory.circular2D,
-    "circular3D": trajectory.circular3D
-}
-
-
-vel_msg = Twist()
-objectStates = ModelStates()
-patterns = ['rover', 'quad','obstacle']
-
-
-
-
-## Main function
-
-def quad_qp_control():
+class IO_controller_quad:
     
-    rospy.init_node('quad_qp_control')
+    traj_func = {
+        "circular": trajectory.circular3D,
+        "linear": trajectory.linear3D
+        # "polynomial": trajectory.polynomial3D
+    }
+    
+    patterns = ['rover', 'quad','obstacle']
 
-    # Subscribers
 
-    rospy.Subscriber("/gazebo/model_states", ModelStates, object_callback)
-    rospy.Timer(rospy.Duration(1.0/input_Hz), IOcallback)
+    def __init__(self,
+        local_offset = np.zeros(3),
+        kp = 5,
+        kd = 1,
+        delta = 1,
+        P = csc_matrix(np.identity(3)),
+        input_Hz = 10,
+        umax = 1,
+        Au = np.array([]),
+        bu = np.array([]),
+        t0 = np.inf,
+        t1 = np.inf,
+        trajectory_type = "circular3D", # Types can be None, circular, square, polynomial
+        trajectory_data = None,
+        vel_msg = Twist(),
+        objectStates = ModelStates(),
+        t0_next = np.inf,
+        t1_next = np.inf,
+        trajectory_type_next = None,
+        traj_on_deck = SimpleMSRPA(),
+        subscriber_topic = "/gazebo/model_states",
+        quad_namespace = "quad0",
+        R = 1.0
+    ):
+        self.state = np.zeros(3) 
+        self.local_offset = local_offset
+        
+        self.kp = kp
+        self.kp = kd
+        self.delta = 1
+        self.P = P
 
-    rospy.spin()
+        self.input_Hz = input_Hz
+        self.umax = umax
+        self.Au = Au
+        self.bu = bu
+        self.t0 = t0
+        self.t1 = t1
+        self.trajectory_type = trajectory_type
+        self.trajectory_data = trajectory_data
+        self.vel_msg = vel_msg
+        self.objectStates = objectStates
+        self.t0_next = t0_next
+        self.t1_next = t1_next 
+        self.trajectory_type_next = trajectory_type_next
+        self.traj_on_deck = traj_on_deck
+        self.quad_namespace = quad_namespace
+        self.R = R
+
+        rospy.Subscriber(subscriber_topic, ModelStates, self.object_callback)
+        rospy.Timer(rospy.Duration(1.0/input_Hz), self.IOcallback)
+
+#    ## Main function
+
+#    def quad_qp_control(self):
+        
+
+
+    ## Helper functions
+
+    def IOcallback(self, msg):
+        # Current time
+    
+        # Change this later to remove global and  take t0 from leader nodes
+    
+        # Calculate normalized time
+        if self.t0 is np.inf or self.t1 is np.inf:
+            # The agent hasn't properly received a trajectory, so do nothing.
+            return
+        else:
+            time_now = rospy.get_rostime().to_sec()
+            if time_now < self.t0:
+                t = 0.0
+            elif time_now > self.t1:
+                t = 1.0
+            else:
+                t = (time_now - self.t0) / (self.t1 - self.t0)
+    
+    
+            # Object states
+            currentObjectStates = deepcopy(self.objectStates)
+            
+            if (self.quad_namespace in currentObjectStates.name):
+                state_index = currentObjectStates.name.index(self.quad_namespace) # Gets the index of agent state info
+                self.state[0] = currentObjectStates.pose[state_index].position.x
+                self.state[1] = currentObjectStates.pose[state_index].position.y
+                self.state[2] = currentObjectStates.pose[state_index].position.z
+    
+    
+    
+                # Find the indices for all rovers, quads, and objects specifically labeled "obstacle"
+                # The array 'patterns' is defined above in the global scope
+                reduced_indices = [currentObjectStates.name.index(s) for s in currentObjectStates.name if any(xs in s for xs in patterns)]
+                
+                # Remove the index for this agent's own information
+                if state_index in reduced_indices:
+                    reduced_indices.remove(state_index)
+    
+                # Solve for center of formation and formation frame state
+                if trajectory_type is not None:
+                    formation_state, deriv_formation_state = self.traj_func[self.trajectory_type](t,self.trajectory_data)
+                    
+                    # Determine local target point and derivative as offset from the formational center
+                    # TODO: This assumes that the formation frame's xy plane is always parallel to global
+                    #       xy frame. This may need to be changed later.
+                    if np.any(local_offset != np.array([0.0, 0.0, 0.0])):
+                        p, dp = formation_offset(formation_state, deriv_formation_state, local_offset)
+                    else:
+                        p = formation_state[0:3]
+                        dp = deriv_formation_state[0:3]
+                else:
+                    p = self.state
+                    dp = np.zeros(3)
+    
+    
+                # print("\np minus formation_state for agent {0}:".format(self.quad_namespace))
+                # print(p - formation_state[0:3])
+    
+                uhat = self.nominal_ctrl(self.state, p, dp)
+                # print("\nuhat untransformed:")
+                # print(uhat)
+                
+                # Minimally modify nominal controller with CBF QP
+                # TODO: This currently assumes everything has the same safety radius.
+                #       Need to create a parameter server which lists the safety radii of all nodes.
+                # OSQP assumes the form (1/2)u^T P u + q^T u
+                self.R = 1.0
+                Ro = 1.0
+    
+    
+                # # print("\nreduced_indices:")
+                # # print(reduced_indices)
+    
+                if len(reduced_indices) > 0:
+                    A = np.zeros((len(reduced_indices),3))
+                    bvec = np.zeros(len(reduced_indices))
+    
+                    for i in range(len(reduced_indices)):
+                        idx = reduced_indices[i]
+                        obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y, currentObjectStates.pose[idx].position.z])
+    
+                        A[i,:] = -1.0*dhdx(self.state,obstacle_state)
+                        bvec[i] = delta*h(self.state,obstacle_state,R,Ro)
+    
+                    # Add the infinity norm input constraints
+                    # A = np.append(A,Au,axis=0) # for untransformed inputs
+                    A = np.append(A,self.Au,axis=0) # for untransformed inputs
+                    bvec = np.append(bvec,self.bu,axis=0)
+                else:
+                    A = self.Au
+                    bvec = self.bu
+    
+    
+                # If the nominal controller is feasible, skip the QP.
+                if (np.max(A.dot(uhat) - bvec) <= 0.0):
+                    u = uhat
+                else:
+                    q = -uhat
+                    model = osqp.OSQP()
+                    model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
+                      
+                    results = model.solve()
+    
+                    # Set u equal to results if the problem was solved; otherwise set it to zero
+                    # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
+                    if(results.info.status_val == 1 or results.info.status_val == 2):
+                        u = results.x
+                        # print("\nresulting controller: " + str(u))
+                    else:
+                        print("\nstatus_val did NOT RETURN 1 OR 2")
+                        u = np.zeros(3)
+    
+                self.vel_msg.linear.x = u[0]
+                self.vel_msg.linear.y = u[1]
+                self.vel_msg.linear.z = u[2]
+    
+                pub.publish(self.vel_msg)
+    
+            # Debug
+            # else:
+                # # print("self.quad_namespace is not in currentObjectStates.name")
+                # # print("\n")
+                # # print(currentObjectStates.name)
+                # # print("\n")
+            # /Debug
+
+
+
+
+    def nominal_ctrl(self, input_state, point, point_deriv):
+        u = self.kd*point_deriv + self.kp*(point-input_state)
+        norm_u = np.linalg.norm(u,np.inf)
+        if norm_u <= self.umax:
+            return u 
+        else:
+            return self.umax * (u / norm_u)
+
+
+
+    def object_callback(self, msg):
+        # Updates the global obstacleStates
+        # Using globals is terrible programming practice and needs to be changed later.
+        self.objectStates = deepcopy(msg)
+   
+   
+
+    # def MSRPA_callback(self, msg):
 
 
 ## Helper functions
 
-def IOcallback(msg):
-     
-    # Current time
-
-    # Change this later to remove global and  take t0 from leader nodes
-    global t0
-    if t0 is np.inf:
-        t0 = rospy.get_rostime()
-
-    rosTime = rospy.get_rostime()
-    if t0 is not np.inf:
-        if (t0 <= rosTime):
-            temp = rosTime - t0
-            t = temp.to_sec() # + 1e-9*temp.to_nsec()
-        else:
-            t = 0.0
-    else:
-        t = 0.0
-        # print("\nt0 is: " + str(t0))
-
-    # print("\nt is: ")
-    # print(t)
-
-
-    # Object states
-    currentObjectStates = deepcopy(objectStates)
-    
-    # Debug
-    # print("\n the currentObjectStates is:")
-    # print(currentObjectStates)
-    # print("\n")
-    # /Debug
-
-    if (quad_namespace in currentObjectStates.name):
-        state_index = currentObjectStates.name.index(quad_namespace) # Gets the index of agent state info
-        state[0] = currentObjectStates.pose[state_index].position.x
-        state[1] = currentObjectStates.pose[state_index].position.y
-        state[2] = currentObjectStates.pose[state_index].position.z
-
-
-
-        # Find the indices for all rovers, quads, and objects specifically labeled "obstacle"
-        # The array 'patterns' is defined above in the global scope
-        reduced_indices = [currentObjectStates.name.index(s) for s in currentObjectStates.name if any(xs in s for xs in patterns)]
-        
-        # Remove the index for this agent's own information
-        if state_index in reduced_indices:
-            reduced_indices.remove(state_index)
-
-        # Solve for center of formation and formation frame state
-        if trajectory_type is not None:
-            formation_state, deriv_formation_state = traj_func[trajectory_type](t,c=(10.59,71.29,10), R=0, w=0.00)
-            
-            # Determine local target point and derivative as offset from the formational center
-            # TODO: This assumes that the formation frame's xy plane is always parallel to global
-            #       xy frame. This may need to be changed later.
-            if np.any(local_offset != np.array([0.0, 0.0, 0.0])):
-                p, dp = formation_offset(formation_state, deriv_formation_state, local_offset)
-            else:
-                p = formation_state[0:3]
-                dp = deriv_formation_state[0:3]
-        else:
-            p = state
-            dp = np.zeros(3)
-
-
-        # print("\np minus formation_state for agent {0}:".format(quad_namespace))
-        # print(p - formation_state[0:3])
-
-        uhat = nominal_ctrl(state, p, dp)
-        # print("\nuhat untransformed:")
-        # print(uhat)
-        
-        # Minimally modify nominal controller with CBF QP
-        # TODO: This currently assumes everything has the same safety radius.
-        #       Need to create a parameter server which lists the safety radii of all nodes.
-        # OSQP assumes the form (1/2)u^T P u + q^T u
-        R = 1.0
-        Ro = 1.0
-
-
-        # # print("\nreduced_indices:")
-        # # print(reduced_indices)
-
-        if len(reduced_indices) > 0:
-            A = np.zeros((len(reduced_indices),3))
-            bvec = np.zeros(len(reduced_indices))
-
-            for i in range(len(reduced_indices)):
-                idx = reduced_indices[i]
-                obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y, currentObjectStates.pose[idx].position.z])
-
-                A[i,:] = -1.0*dhdx(state,obstacle_state)
-                bvec[i] = delta*h(state,obstacle_state,R,Ro)
-
-            # Add the infinity norm input constraints
-            # A = np.append(A,Au,axis=0) # for untransformed inputs
-            A = np.append(A,Au,axis=0) # for untransformed inputs
-            bvec = np.append(bvec,bu,axis=0)
-        else:
-            A = Au
-            bvec = bu
-
-
-        # If the nominal controller is feasible, skip the QP.
-        if (np.max(A.dot(uhat) - bvec) <= 0.0):
-            u = uhat
-        else:
-            q = -uhat
-            model = osqp.OSQP()
-            model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
-              
-            results = model.solve()
-
-            # Set u equal to results if the problem was solved; otherwise set it to zero
-            # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
-            if(results.info.status_val == 1 or results.info.status_val == 2):
-                u = results.x
-                # print("\nresulting controller: " + str(u))
-            else:
-                print("\nstatus_val did NOT RETURN 1 OR 2")
-                u = np.zeros(3)
-
-        vel_msg.linear.x = u[0]
-        vel_msg.linear.y = u[1]
-        vel_msg.linear.z = u[2]
-
-        pub.publish(vel_msg)
-
-    # Debug
-    # else:
-        # # print("quad_namespace is not in currentObjectStates.name")
-        # # print("\n")
-        # # print(currentObjectStates.name)
-        # # print("\n")
-    # /Debug
-
-
-
-
-def nominal_ctrl(state, point, point_deriv):
-    global kp, kd, umax
-    
-    u = kd*point_deriv + kp*(point-state)
-    norm_u = np.linalg.norm(u,np.inf)
-    if norm_u <= umax:
-        return u 
-    else:
-        return umax * (u / norm_u)
 
 def h(x,xo,R,Ro):
     # x and xo refer to the positional (x,y) state of the agent (x) and obstacle (xo)
@@ -348,15 +357,6 @@ def formation_offset(formation_state, deriv_formation_state, offset_vector):
     
 
 
-def object_callback(msg):
-    # Updates the global obstacleStates
-    # Using globals is terrible programming practice and needs to be changed later.
-    global objectStates
-    objectStates = deepcopy(msg)
-   
-   
-
-def MSRPA_callback(msg):
     
 
 
@@ -386,6 +386,7 @@ if __name__ == '__main__':
     parser.add_argument('--formation_z', type=float, help='The local formational z-axis offset of the agent in the formation frame.')
     parser.add_argument('--instant_start', action="store_true", help='Starts the trajectory immediately upon the node launching.')
     parser.add_argument('--timeout', type=int, help='Number of seconds to wait for the "enable_motors" topic to appear.')
+    parser.add_argument('--umax', type=float, help='Maximum infinity norm control input for quadrotors')
     args = parser.parse_args(myargv)
     
     if args.quad_namespace is not None:
@@ -393,6 +394,8 @@ if __name__ == '__main__':
         # print("The quad namespace is " + quad_namespace)
     else:
         quad_namespace = 'quad0'
+
+    local_offset = np.zeros(3)
 
     if args.formation_x is not None:
         local_offset[0] = args.formation_x
@@ -408,20 +411,38 @@ if __name__ == '__main__':
     else:
         timeout = 90
 
+    if args.umax is not None:
+        umax = args.umax
+    else:
+        umax = 1
+
+    Au = np.array([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
+    bu = np.array([umax, umax, umax, umax, umax, umax])
+
     # if args.instant_start:
     #     t0 = rospy.get_rostime()
 
     # TODO: Find the publisher topic
     pub = rospy.Publisher('cmd_vel', Twist, queue_size=1) # Double check to make sure this has correct namespace later
 
-    MSRPA_sub = rospy.Subscriber(quad_namespace, SimpleMSRPA, MSRPA_callback)
+    # MSRPA_sub = rospy.Subscriber(quad_namespace, SimpleMSRPA, MSRPA_callback)
 
     rospy.wait_for_service('enable_motors', timeout=timeout)
     enable_motors = rospy.ServiceProxy('enable_motors', EnableMotors)
     response = enable_motors(True)
     if response.success:
         try:
-            quad_qp_control()
+            rospy.init_node('quad_qp_control')
+    
+            IO_node = IO_controller_quad(
+                Au=Au,
+                bu=bu,
+                umax=umax,
+                local_offset=local_offset,
+                quad_namespace=quad_namespace
+            )
+
+            rospy.spin()
         except rospy.ROSInterruptException: pass
     else:
         print("Something went wrong with calling 'enable_motors' service for quadrotor" + quad_namespace)
