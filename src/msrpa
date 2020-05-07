@@ -133,7 +133,7 @@ class MSRPA_node:
             print("\nNumber of received messages was too low for agent {}".format(number))
             return None
         
-        print(received_messages)
+        #print(received_messages)
         count = Counter([n.trajectory_type for n in received_messages])
         del count['']
         

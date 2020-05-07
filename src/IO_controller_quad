@@ -26,6 +26,7 @@ import tf.transformations as trans # For quaternion operations
 import argparse
 from copy import deepcopy
 from warnings import warn
+from time import clock
 
 import trajectory
 
@@ -112,6 +113,9 @@ class IO_controller_quad:
     ## Helper functions
 
     def IOcallback(self, msg):
+        # Debug 
+        start = clock()
+
         # Current time
     
         # Change this later to remove global and  take t0 from leader nodes
@@ -177,8 +181,6 @@ class IO_controller_quad:
                         print("Variable 'trajectory_data' is None.")
     
     
-                # print("\np minus formation_state for agent {0}:".format(self.quad_namespace))
-                # print(p - formation_state[0:3])
     
                 uhat = self.nominal_ctrl(self.state, p, dp)
                 # print("\nuhat untransformed:")
@@ -191,9 +193,6 @@ class IO_controller_quad:
                 self.R = 1.0
                 Ro = 2 
     
-    
-                # # print("\nreduced_indices:")
-                # # print(reduced_indices)
     
                 if len(reduced_indices) > 0:
                     A = np.zeros((len(reduced_indices),3))
@@ -214,11 +213,15 @@ class IO_controller_quad:
                     A = self.Au
                     bvec = self.bu
     
+                print("Quadrotor state:")
+                print(self.state)
     
                 # If the nominal controller is feasible, skip the QP.
                 if (np.max(A.dot(uhat) - bvec) <= 0.0):
                     u = uhat
+                    print("\nOptimization skipped")
                 else:
+                    print("\nOptimization not skipped")
                     q = -uhat
                     model = osqp.OSQP()
                     model.setup(P=self.P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
@@ -229,11 +232,13 @@ class IO_controller_quad:
                     # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
                     if(results.info.status_val == 1 or results.info.status_val == 2):
                         u = results.x
-                        # print("\nresulting controller: " + str(u))
+                        print("Setup time: {}".format(results.info.setup_time))
+                        print("Solve time: {}".format(results.info.solve_time))
                     else:
                         print("\nstatus_val did NOT RETURN 1 OR 2")
                         u = np.zeros(3)
     
+
                 self.vel_msg.linear.x = u[0]
                 self.vel_msg.linear.y = u[1]
                 self.vel_msg.linear.z = u[2]
@@ -248,10 +253,16 @@ class IO_controller_quad:
                 # # print("\n")
             # /Debug
 
+        # Debug 
+        end = clock()
+        print("\nElapsed time for agent {}: {}".format(self.quad_namespace, end-start))
+
 
 
 
     def nominal_ctrl(self, input_state, point, point_deriv):
+        # Debug
+        print("Error for {}: {}".format(self.quad_namespace, point-input_state))
         u = self.kd*point_deriv + self.kp*(point-input_state)
         norm_u = np.linalg.norm(u,np.inf)
         if norm_u <= self.umax:
@@ -408,6 +419,7 @@ if __name__ == '__main__':
     parser.add_argument('--umax', type=float, help='Maximum infinity norm control input for quadrotors')
     parser.add_argument('--kd', type=float, help='Derivative gain')
     parser.add_argument('--kp', type=float, help='Proportional gain')
+    parser.add_argument('--input_Hz', type=float, help='Hz rate for the controller callback function')
     args = parser.parse_args(myargv)
     
     if args.quad_namespace is not None:
@@ -443,6 +455,11 @@ if __name__ == '__main__':
     if args.kd is not None:
         kd = args.kd
 
+    if args.input_Hz is not None:
+        input_Hz = args.input_Hz
+    else:
+        input_Hz = 10
+
     Au = np.array([[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
     bu = np.array([umax, umax, umax, umax, umax, umax])
 
@@ -460,7 +477,8 @@ if __name__ == '__main__':
                 bu=bu,
                 umax=umax,
                 local_offset=local_offset,
-                quad_namespace=quad_namespace
+                quad_namespace=quad_namespace,
+                input_Hz=input_Hz
             )
 
             rospy.spin()
