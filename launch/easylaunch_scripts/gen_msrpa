@@ -29,18 +29,18 @@ from scipy.linalg import circulant
 
 # Parameters
 
-n_quads = 5
-n_rovers = 5
-leader_list = [0,2]
-malicious_list = [1]
+n_quads = 3
+n_rovers = 0
+leader_list = [1]
+malicious_list = []
 
 input_Hz = 3
 eta = 10
-F = 1
+F = 0
 
 
 n = n_quads + n_rovers
-k = 3
+k = 1
 
 
 # AGENT NUMBERING:
