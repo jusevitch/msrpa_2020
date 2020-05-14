@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+
+# 
+#      ____  ___   _____ ______   __          __    
+#     / __ \/   | / ___// ____/  / /   ____ _/ /_   
+#    / / / / /| | \__ \/ /      / /   / __ `/ __ \  
+#   / /_/ / ___ |___/ / /___   / /___/ /_/ / /_/ /  
+#  /_____/_/  |_/____/\____/  /_____/\__,_/_.___/   
+#                                                   
+# 
+# Author: James Usevitch
+# 
+# Description: This file is uses EasyLaunch to generate a launch file for 
+#              MSRPA nodes, quads with IO controllers, and rovers with 
+#              IO controllers.
+# 
+
+
+import sys
+
+## Append easylaunch directory to path
+## !!! PUT THE PATH TO THE EASYLAUNCH FILE HERE !!!
+sys.path.append('/media/james/Data/code2/easylaunch')
+
+import easylaunch as EL
+import numpy as np
+from numpy import cos, sin
+from scipy.linalg import circulant
+
+# Parameters
+
+n_quads = 3
+n_rovers = 0
+leader_list = [0]
+malicious_list = []
+
+input_Hz_msrpa = 3
+eta = 10
+F = 0
+
+
+n = n_quads + n_rovers
+k = 1
+
+# Quad parameters
+umax_quad = 2
+kp_quad = 2.5
+kd_quad = 1
+
+input_Hz_quad = 250
+
+# AGENT NUMBERING:
+#
+# This approach assumes the following numbering:
+# Quads are named quad_0 ... quad_(n_quads-1)
+# Rovers are named rover_(n_quads) ... rover_(n_quads + n_rovers - 1)
+# 
+# FOR EXAMPLE, if 2 quads, 2 rovers then the agent list is
+# quad0, quad1, rover2, rover3
+
+
+
+## Helper Functions
+
+def kCirculant_string(k,n):
+    vec = circulant([1 if (i <= k and i != 0) else 0 for i in range(n)]).T  # Scipy does columnwise, so need to transpose it
+    print(vec)
+    return str(vec.flatten().tolist())
+
+
+# Construct the launch file
+
+
+launch = EL.launchFile()
+
+# Global launch arguments. Need to rename this in easylaunch.py sometime.
+
+launch.arg = {
+    "x": "0.0",
+    "y": "0.0",
+    "z": "0.0",
+    "output": "screen",
+    "model": "$(find hector_quadrotor_description)/urdf/quadrotor_hokuyo_utm30lx.gazebo.xacro",
+    "controllers": "controller/attitude controller/velocity controller/position",
+}
+
+
+
+# Include files
+
+
+# gazebo_include = EL.include(file="$(find msrpa_2020)/gazebo/launch/city_world.launch")
+# gazebo_include = EL.include(file="$(find gazebo_ros)/launch/empty_world.launch")
+gazebo_include = EL.include(file="$(find msrpa_2020)/launch/empty_world_boxes.launch")
+#gazebo_include.arg = {
+#    "physics": "bullet"
+#}
+
+
+quad_include = [EL.include(file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch") for i in range(n_quads)]
+
+for i in range(n_quads):
+    quad_include[i].ns = "quad" + str(i)
+    quad_include[i].defarg = ["model", "controllers"]
+    quad_include[i].arg = {
+        "name": "quad" + str(i),
+        "tf_prefix": "quad" + str(i),
+        "x": str(5*cos(i*(2*3.14 / n_quads))),
+        "y": str(5*sin(i*(2*3.14 / n_quads)))
+    }
+ 
+# FIXME: Revise the numbering to follow the numbering scheme above
+rover_include = [EL.include(file="$(find msrpa_2020)/launch/spawn_rover.launch") for i in range(n_rovers)]
+
+for i in range(n_rovers):
+    name = "rover" + str(i)
+    rover_include[i].ns = name
+    rover_include[i].arg ={
+        "robot_namespace": name,
+        "name": name,
+        "x": str(10.59 + 3*cos(i*(2*3.14 / n_rovers))),
+        "y": str(71.29 + 3*sin(i*(2*3.14 / n_rovers)))
+    }
+
+launch.include = [gazebo_include] + quad_include + rover_include
+
+# Node files
+
+IO_nodes = [EL.node(name=str("IO_ctrl_quad" + str(i)), pkg="msrpa_2020", type="IO_controller_quad") for i in range(n_quads)]
+
+for i in range(n_quads):
+    IO_nodes[i].args = "--quad_namespace quad" + str(i)
+    IO_nodes[i].args += " --formation_x " + str(2*cos(i*(2*3.14 / n_quads)))
+    IO_nodes[i].args += " --formation_y " + str(2*sin(i*(2*3.14 / n_quads)))
+    IO_nodes[i].args += " --umax " + str(umax_quad)
+    IO_nodes[i].args += " --kp " + str(kp_quad)
+    IO_nodes[i].args += " --kd " + str(kd_quad)
+    IO_nodes[i].args += " --input_Hz " + str(input_Hz_quad)
+    IO_nodes[i].output = "screen"
+    IO_nodes[i].ns = "quad" + str(i)
+
+
+launch.node = IO_nodes
+
+
+
+msrpa = EL.node(name="MSRPA", pkg="msrpa_2020", type="msrpa")
+msrpa.output = "screen"
+msrpa.args = f"--n_quads {n_quads} --n_rovers {n_rovers} --input_Hz {input_Hz_msrpa} --eta {eta} --F {F}"
+msrpa.ns = "MSRPA"
+
+if len(leader_list) > 0:
+    leader_list_string = ' '.join(str(i) for i in leader_list)
+    msrpa.args += f" --leader_list {leader_list_string}"
+
+if len(malicious_list) > 0:
+    malicious_list_string = ' '.join(str(i) for i in malicious_list)
+    msrpa.args += f" --malicious_list {malicious_list_string}"
+
+# A matrix as parameter
+A_string = kCirculant_string(k,n)
+msrpa.rosparam = {
+    "/Adjacency_matrix": A_string
+}
+
+launch.node += [msrpa]
+
+# Box obstacles
+
+box_node = EL.node(name="obstacle0", pkg="gazebo_ros", type="spawn_model")
+box_node.args = "-file $(find msrpa_2020)/models/unit_box/model.sdf"
+box_node.args += " -sdf -model obstacle0 -x 5.0 -y0.0 -z 4.0"
+
+
+
+
+
+# Write the file to XML
+
+if __name__ == "__main__":
+    # Command line option
+    if len(sys.argv) > 1:
+        launchfile_name = sys.argv[1] # Must be 1. The 0th entry of the array will be "msrpa_only.py".
+    else:
+        launchfile_name = "../" + "city_world_quads_rovers.launch"
+    
+    launch.write(filename=launchfile_name, verbose=True)

@@ -114,7 +114,7 @@ class IO_controller_quad:
 
     def IOcallback(self, msg):
         # Debug 
-        start = clock()
+#        start = clock()
 
         # Current time
     
@@ -212,16 +212,17 @@ class IO_controller_quad:
                 else:
                     A = self.Au
                     bvec = self.bu
-    
-                print("Quadrotor state:")
-                print(self.state)
+      
+#                if self.quad_namespace == "quad0":
+#                    print("Quadrotor state:")
+#                    print(self.state)
     
                 # If the nominal controller is feasible, skip the QP.
                 if (np.max(A.dot(uhat) - bvec) <= 0.0):
                     u = uhat
-                    print("\nOptimization skipped")
+                    #print("\nOptimization skipped")
                 else:
-                    print("\nOptimization not skipped")
+                    #print("\nOptimization not skipped")
                     q = -uhat
                     model = osqp.OSQP()
                     model.setup(P=self.P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
@@ -232,8 +233,6 @@ class IO_controller_quad:
                     # See https://osqp.org/docs/interfaces/status_values.html#status-values for status_val values
                     if(results.info.status_val == 1 or results.info.status_val == 2):
                         u = results.x
-                        print("Setup time: {}".format(results.info.setup_time))
-                        print("Solve time: {}".format(results.info.solve_time))
                     else:
                         print("\nstatus_val did NOT RETURN 1 OR 2")
                         u = np.zeros(3)
@@ -244,25 +243,25 @@ class IO_controller_quad:
                 self.vel_msg.linear.z = u[2]
     
                 self.pub.publish(self.vel_msg)
-    
-            # Debug
-            # else:
-                # # print("self.quad_namespace is not in currentObjectStates.name")
-                # # print("\n")
-                # # print(currentObjectStates.name)
-                # # print("\n")
-            # /Debug
+   
+#                if self.quad_namespace == "quad0":
+#                    print("\nself.vel_msg: {}".format(self.vel_msg))
+#                    print("\np, dp: {}, {}".format(p, dp))
+                
+
 
         # Debug 
-        end = clock()
-        print("\nElapsed time for agent {}: {}".format(self.quad_namespace, end-start))
+#        end = clock()
+#        if self.quad_namespace == "quad0":
+#            print("\nElapsed time for agent {}: {}".format(self.quad_namespace, end-start))
 
 
 
 
     def nominal_ctrl(self, input_state, point, point_deriv):
         # Debug
-        print("Error for {}: {}".format(self.quad_namespace, point-input_state))
+#        if self.quad_namespace == "quad0":
+#            print("Error for {}: {}".format(self.quad_namespace, point-input_state))
         u = self.kd*point_deriv + self.kp*(point-input_state)
         norm_u = np.linalg.norm(u,np.inf)
         if norm_u <= self.umax:
