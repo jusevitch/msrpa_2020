@@ -29,8 +29,8 @@ from scipy.linalg import circulant
 
 # Parameters
 
-n_quads = 3
-n_rovers = 0
+n_quads = 0
+n_rovers = 1
 leader_list = [0]
 malicious_list = []
 
@@ -48,6 +48,15 @@ kp_quad = 2.5
 kd_quad = 1
 
 input_Hz_quad = 250
+
+
+# Rover parameters
+
+vmax_rover = 1
+wmax_rover = 1
+kp_rover = 2.5
+kd_rover = 1
+input_Hz_rover = 50
 
 # AGENT NUMBERING:
 #
@@ -90,8 +99,8 @@ launch.arg = {
 
 
 # gazebo_include = EL.include(file="$(find msrpa_2020)/gazebo/launch/city_world.launch")
-# gazebo_include = EL.include(file="$(find gazebo_ros)/launch/empty_world.launch")
-gazebo_include = EL.include(file="$(find msrpa_2020)/launch/empty_world_boxes.launch")
+gazebo_include = EL.include(file="$(find gazebo_ros)/launch/empty_world.launch")
+# gazebo_include = EL.include(file="$(find msrpa_2020)/launch/empty_world_boxes.launch")
 #gazebo_include.arg = {
 #    "physics": "bullet"
 #}
@@ -126,22 +135,36 @@ launch.include = [gazebo_include] + quad_include + rover_include
 
 # Node files
 
-IO_nodes = [EL.node(name=str("IO_ctrl_quad" + str(i)), pkg="msrpa_2020", type="IO_controller_quad") for i in range(n_quads)]
+IO_nodes_quads = [EL.node(name=str("IO_ctrl_quad" + str(i)), pkg="msrpa_2020", type="IO_controller_quad") for i in range(n_quads)]
 
 for i in range(n_quads):
-    IO_nodes[i].args = "--quad_namespace quad" + str(i)
-    IO_nodes[i].args += " --formation_x " + str(2*cos(i*(2*3.14 / n_quads)))
-    IO_nodes[i].args += " --formation_y " + str(2*sin(i*(2*3.14 / n_quads)))
-    IO_nodes[i].args += " --umax " + str(umax_quad)
-    IO_nodes[i].args += " --kp " + str(kp_quad)
-    IO_nodes[i].args += " --kd " + str(kd_quad)
-    IO_nodes[i].args += " --input_Hz " + str(input_Hz_quad)
-    IO_nodes[i].output = "screen"
-    IO_nodes[i].ns = "quad" + str(i)
+    IO_nodes_quads[i].args = "--quad_namespace quad" + str(i)
+    IO_nodes_quads[i].args += " --formation_x " + str(2*cos(i*(2*3.14 / n_quads)))
+    IO_nodes_quads[i].args += " --formation_y " + str(2*sin(i*(2*3.14 / n_quads)))
+    IO_nodes_quads[i].args += " --umax " + str(umax_quad)
+    IO_nodes_quads[i].args += " --kp " + str(kp_quad)
+    IO_nodes_quads[i].args += " --kd " + str(kd_quad)
+    IO_nodes_quads[i].args += " --input_Hz " + str(input_Hz_quad)
+    IO_nodes_quads[i].output = "screen"
+    IO_nodes_quads[i].ns = "quad" + str(i)
 
 
-launch.node = IO_nodes
+IO_nodes_rovers += [EL.node(name=str("IO_ctrl_rover" + str(i)), pkg="msrpa_2020", type="IO_controller_rover") for i in range(n_rovers)]
 
+for i in range(n_rovers):
+    IO_nodes_rovers[i].args = "--rover_namespace rover" + str(i)
+    IO_nodes_rovers[i].args += " --formation_x " + str(2*cos(i*(2*3.14 / n_rovers)))
+    IO_nodes_rovers[i].args += " --formation_y " + str(2*sin(i*(2*3.14 / n_rovers)))
+    IO_nodes_rovers[i].args += " --vmax " + str(vmax_rover)
+    IO_nodes_rovers[i].args += " --wmax " + str(wmax_rover)
+    IO_nodes_rovers[i].args += " --kp " + str(kp_rover)
+    IO_nodes_rovers[i].args += " --kd " + str(kd_rover)
+    IO_nodes_rovers[i].args += " --input_Hz " + str(input_Hz_rover)
+    IO_nodes_rovers[i].output = "screen"
+    IO_nodes_rovers[i].ns = "rover" + str(i)
+
+
+launch.node = IO_nodes_quads + IO_nodes_rovers
 
 
 msrpa = EL.node(name="MSRPA", pkg="msrpa_2020", type="msrpa")
