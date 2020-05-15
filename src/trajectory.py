@@ -16,6 +16,7 @@
 
 
 import numpy as np 
+from math import atan2
 
 # Trajectory Formatting:
 # 
@@ -155,6 +156,7 @@ def linear2D(t, data):
     p0 = np.array(data[2:4])
     p1 = np.array(data[5:7])
 
+    print("\np0:\n{} \np1:\n{}".format(p0,p1))
     phi = atan2(p1[1] - p0[1], p1[0] - p0[0])
 
     formation_state = np.append(t*p1 + (1-t)*p0, phi)

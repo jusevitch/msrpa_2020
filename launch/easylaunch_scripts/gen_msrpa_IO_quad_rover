@@ -30,17 +30,22 @@ from scipy.linalg import circulant
 # Parameters
 
 n_quads = 0
-n_rovers = 3
-leader_list = [0]
-malicious_list = []
+n_rovers = 10
+leader_list = [0,1,2]
+malicious_list = [4]
 
 input_Hz_msrpa = 3
 eta = 10
-F = 0
+F = 1
 
 
 n = n_quads + n_rovers
-k = 1
+k = 3
+
+launch_radius = 7
+
+formation_radius = 5
+
 
 # Quad parameters
 umax_quad = 2
@@ -52,7 +57,7 @@ input_Hz_quad = 250
 
 # Rover parameters
 
-vmax_rover = 1
+vmax_rover = 2
 wmax_rover = 2
 kp_rover = 2.5
 kd_rover = 1
@@ -105,6 +110,9 @@ gazebo_include = EL.include(file="$(find gazebo_ros)/launch/empty_world.launch")
 #    "physics": "bullet"
 #}
 
+gazebo_include.arg = {
+    "paused": "true"
+}
 
 quad_include = [EL.include(file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch") for i in range(n_quads)]
 
@@ -127,8 +135,9 @@ for i in range(n_rovers):
     rover_include[i].arg ={
         "robot_namespace": name,
         "name": name,
-        "x": str(3*cos(i*(2*3.14 / n_rovers))),
-        "y": str(3*sin(i*(2*3.14 / n_rovers)))
+        "x": str(launch_radius*cos(i*(2*3.14 / n_rovers))),
+        "y": str(launch_radius*sin(i*(2*3.14 / n_rovers))),
+        "z": str(0.1)
     }
 
 launch.include = [gazebo_include] + quad_include + rover_include
@@ -153,8 +162,8 @@ IO_nodes_rovers = [EL.node(name=str("IO_ctrl_rover" + str(i)), pkg="msrpa_2020",
 
 for i in range(n_rovers):
     IO_nodes_rovers[i].args = "--rover_namespace rover" + str(i)
-    IO_nodes_rovers[i].args += " --formation_x " + str(2*cos(i*(2*3.14 / n_rovers)))
-    IO_nodes_rovers[i].args += " --formation_y " + str(2*sin(i*(2*3.14 / n_rovers)))
+    IO_nodes_rovers[i].args += " --formation_x " + str(formation_radius*cos(i*(2*3.14 / n_rovers)))
+    IO_nodes_rovers[i].args += " --formation_y " + str(formation_radius*sin(i*(2*3.14 / n_rovers)))
     IO_nodes_rovers[i].args += " --vmax " + str(vmax_rover)
     IO_nodes_rovers[i].args += " --wmax " + str(wmax_rover)
     IO_nodes_rovers[i].args += " --kp " + str(kp_rover)
@@ -192,7 +201,7 @@ launch.node += [msrpa]
 
 box_node = EL.node(name="obstacle0", pkg="gazebo_ros", type="spawn_model")
 box_node.args = "-file $(find msrpa_2020)/models/unit_box/model.sdf"
-box_node.args += " -sdf -model obstacle0 -x 0.0 -y 5.0 -z 0.0"
+box_node.args += " -sdf -model obstacle0 -x 0.0 -y 8.0 -z 0.55"
 
 launch.node += [box_node]
 

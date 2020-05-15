@@ -48,6 +48,7 @@ class MSRPA_node:
 
         self.timestep = 0
 
+        self.follower_list = [i for i in range(self.n) if i not in self.leader_list]
         self.normal_list = [i for i in range(self.n) if i not in self.leader_list + self.malicious_list]
 
         self.broadcast_matrix = np.zeros(self.A.shape)
@@ -74,6 +75,12 @@ class MSRPA_node:
         for i in self.leader_list:
             self.MSRPA_list[i] = leader_message
 
+        # List of malicious messages
+        # These messages are the messages that the malicious agents use to calculate their physical control input
+        # This represents malicious agents physically behaving like normal agents, but sending faulty
+        #   messages in the cyber domain.
+        self.malicious_internal_list = [SimpleMSRPA() for i in range(self.n)]
+
         for j in self.malicious_list:
             # self.MSRPA_list[j] = self.gen_malicious_message(j)
             self.MSRPA_list[j] = SimpleMSRPA()
@@ -87,9 +94,6 @@ class MSRPA_node:
     def MSRPA_callback(self, leader_messages):
         # Do the main callback function
         
-        #print("\nself.MSRPA_list:")
-        #print(self.MSRPA_list)
-
         # Reset at intervals of eta
         if self.timestep == 0:
             self.broadcast_matrix[:,self.normal_list] = 0.0
@@ -99,32 +103,26 @@ class MSRPA_node:
         # Broadcast
         # ith column of A matrix contains out-neighbors of agent i
         # ith row of A matrix contains in-neighbors of agent i
-        for i in self.normal_list:
+        for i in self.follower_list:
             received_from = np.nonzero(self.broadcast_matrix[i,:])[0]
             self.received_messages[i] = [self.MSRPA_list[j] for j in received_from]
-            #print("\nReceived from, i={}".format(i))
-            #print(received_from)
-
             
             self.select_message(i, self.received_messages[i])
 
 
         # Send to Publishers 
         for j in range(self.n):
-            if self.MSRPA_list[j] != self.empty_msg:
-                self.publist[j].publish(self.MSRPA_list[j])
+            if j in self.malicious_list:
+                print("\nMalicious message in MSRPA_list:\n{}".format(self.MSRPA_list[j]))
+                if self.malicious_internal_list[j] != self.empty_msg:
+                    self.publist[j].publish(self.malicious_internal_list[j])
+            else:
+                if self.MSRPA_list[j] != self.empty_msg:
+                    self.publist[j].publish(self.MSRPA_list[j])
         
 
         self.timestep += 1
         self.timestep %= eta
-
-        #print("\ntimestep: {}".format(self.timestep))
-        #print("\nBroadcast_matrix at timestep {}".format(self.timestep))
-        #print(self.broadcast_matrix)
-
-        #print("\nsefl.MSRPA_list:")
-        #print(self.MSRPA_list)
-
 
 
     def select_message(self, number, received_messages):
@@ -133,7 +131,6 @@ class MSRPA_node:
             print("\nNumber of received messages was too low for agent {}".format(number))
             return None
         
-        #print(received_messages)
         count = Counter([n.trajectory_type for n in received_messages])
         del count['']
         
@@ -142,7 +139,6 @@ class MSRPA_node:
             print("\nMost common was {} for agent {}".format(count.most_common()[0][0], number))
             return None
 
-        #print("This happened for number={}".format(number))
         # Collect all messages of the most common type
         msg_type = count.most_common()[0][0]
         matching_types = [msg for msg in received_messages if msg.trajectory_type == msg_type]
@@ -152,9 +148,15 @@ class MSRPA_node:
         data_matrix = np.stack([msg.data for msg in matching_types])
         median_matrix = np.median(data_matrix, axis=0)
 
-        # Update the agent's broadcasted message
-        self.MSRPA_list[number].trajectory_type = msg_type
-        self.MSRPA_list[number].data = median_matrix.tolist()
+        if number in self.normal_list:
+            # Update the agent's broadcasted message
+            self.MSRPA_list[number].trajectory_type = msg_type
+            self.MSRPA_list[number].data = median_matrix.tolist()
+
+        else:
+            # Malicious agents update their internal list
+            self.malicious_internal_list[number].trajectory_type = msg_type
+            self.malicious_internal_list[number].data = median_matrix.tolist()
 
         # Update the broadcast matrix
         self.broadcast_matrix[:,number] = self.A[:,number]
@@ -174,6 +176,9 @@ class MSRPA_node:
         else:    
             for i in self.leader_list:
                 self.MSRPA_list[i] = msg
+            
+            for j in self.malicious_list:
+                self.MSRPA_list[j] = msg
 
 
     def gen_malicious_message(self, number, malicious_message=SimpleMSRPA()):
@@ -264,7 +269,7 @@ if __name__ == "__main__":
     leader_message = SimpleMSRPA()
     leader_message.trajectory_type = "circular"
     # t0, t1, R, theta0, w, cx, cy, cz
-    leader_message.data = [0.0, 0.0, 5.0, 0.0, 0.1, 0.0, 0.0, 4.0]
+    leader_message.data = [0.0, 0.0, 8.0, 0.0, 0.06, 0.0, 0.0, 4.0]
 
     try:
         rospy.init_node('MSRPA_master')

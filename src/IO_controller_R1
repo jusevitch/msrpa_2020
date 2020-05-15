@@ -274,6 +274,9 @@ class IO_controller_R1:
         self.t0 = msg.data[0]
         self.t1 = msg.data[1]
 
+        if self.trajectory_type == "linear":
+            print("\n{} has linear traj type".format(rover_namespace))
+
 
 
 def h(x,xo,R,Ro):
