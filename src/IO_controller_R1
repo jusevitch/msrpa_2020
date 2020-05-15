@@ -32,6 +32,7 @@ import trajectory
 from geometry_msgs.msg import Twist
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Quaternion
+from msrpa_2020.msg import SimpleMSRPA
 
 
 
@@ -112,7 +113,7 @@ class IO_controller_R1:
                 t = (time_now - self.t0) / (self.t1 - self.t0)
     
             # Object states
-            currentObjectStates = deepcopy(objectStates)
+            currentObjectStates = deepcopy(self.objectStates)
             
             if (self.rover_namespace in currentObjectStates.name):
                 state_index = currentObjectStates.name.index(self.rover_namespace) # Gets the index of agent state info
@@ -137,8 +138,8 @@ class IO_controller_R1:
                         formation_state, deriv_formation_state = self.traj_func[self.trajectory_type](t,self.trajectory_data)
      
                     # Determine local target point and derivative as offset from the formational center
-                    if np.any(local_offset != np.array([0.0, 0.0])):
-                        p, dp = formation_offset(formation_state, deriv_formation_state, local_offset)
+                    if np.any(self.local_offset != np.array([0.0, 0.0])):
+                        p, dp = formation_offset(formation_state, deriv_formation_state, self.local_offset)
                     else:
                         p = formation_state[0:2]
                         dp = deriv_formation_state[0:2]
@@ -147,10 +148,10 @@ class IO_controller_R1:
                     dp = np.zeros(2)
     
                 
-                uhat = self.nominal_ctrl_untransformed(self.state, p, dp)
+                uhat = self.nominal_ctrl_untransformed(p, dp)
     
                 # Location of the b point for IO controller
-                b_state = self.state[0:2] + np.array([b*cos(self.state[2]), b*sin(self.state[2])])
+                b_state = self.state[0:2] + np.array([self.b*cos(self.state[2]), self.b*sin(self.state[2])])
                 
                 
                 # TODO: This currently assumes everything has the same safety radius.
@@ -196,7 +197,7 @@ class IO_controller_R1:
                     q = -uhat
     
                     model = osqp.OSQP()
-                    model.setup(P=P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
+                    model.setup(P=self.P, q=q, A=csc_matrix(A), u=bvec, verbose=False)
                       
                     results = model.solve()
     
@@ -210,13 +211,13 @@ class IO_controller_R1:
     
                 # Transform by the T matrix
                 # Only use this if you use the nominal_ctrl_untransformed function
-                Tmatrix = T(state[2])
+                Tmatrix = self.T(self.state[2])
                 u = Tmatrix.dot(u)
                 
-                vel_msg.linear.x = u[0]
-                vel_msg.angular.z = u[1]
+                self.vel_msg.linear.x = u[0]
+                self.vel_msg.angular.z = u[1]
     
-                pub.publish(vel_msg)
+                self.pub.publish(self.vel_msg)
     
 
 
@@ -365,7 +366,7 @@ def formation_offset(formation_state, deriv_formation_state, offset_vector):
     #
     # output_velocity: A numpy vector containing the velocity of the offset point
     
-    phi = formation_state[3]
+    phi = formation_state[2]
     rotation_matrix = np.array([[cos(phi), -sin(phi)],[sin(phi), cos(phi)]])
     output_point = rotation_matrix.dot(offset_vector) + formation_state[0:2] 
 
@@ -409,6 +410,7 @@ if __name__ == '__main__':
     else:
         rover_namespace = 'rover0'
 
+    local_offset = np.zeros(2)
 
     if args.formation_x is not None:
         local_offset[0] = args.formation_x
@@ -438,13 +440,24 @@ if __name__ == '__main__':
         input_Hz = 10
 
     
-    Au = np.array
+    Au = np.array([[1,0],[-1,0],[0,1],[0,-1]])
+    bu = np.array([vmax, vmax, wmax, wmax])
 
 
     try:
         rospy.init_node('R1_qp_control')
 
-        IO_rover_node = IO_controller_R1()
+        IO_rover_node = IO_controller_R1(
+           kp=kp,
+           kd=kd,
+           Au=Au,
+           bu=bu,
+           vmax=vmax,
+           wmax=wmax,
+           local_offset=local_offset,
+           rover_namespace=rover_namespace,
+           input_Hz=input_Hz
+        )
 
         rospy.spin()
     except rospy.ROSInterruptException: pass

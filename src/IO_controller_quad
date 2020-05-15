@@ -190,7 +190,6 @@ class IO_controller_quad:
                 # TODO: This currently assumes everything has the same safety radius.
                 #       Need to create a parameter server which lists the safety radii of all nodes.
                 # OSQP assumes the form (1/2)u^T P u + q^T u
-                self.R = 1.0
                 Ro = 2 
     
     

@@ -30,7 +30,7 @@ from scipy.linalg import circulant
 # Parameters
 
 n_quads = 0
-n_rovers = 1
+n_rovers = 3
 leader_list = [0]
 malicious_list = []
 
@@ -53,7 +53,7 @@ input_Hz_quad = 250
 # Rover parameters
 
 vmax_rover = 1
-wmax_rover = 1
+wmax_rover = 2
 kp_rover = 2.5
 kd_rover = 1
 input_Hz_rover = 50
@@ -127,8 +127,8 @@ for i in range(n_rovers):
     rover_include[i].arg ={
         "robot_namespace": name,
         "name": name,
-        "x": str(10.59 + 3*cos(i*(2*3.14 / n_rovers))),
-        "y": str(71.29 + 3*sin(i*(2*3.14 / n_rovers)))
+        "x": str(3*cos(i*(2*3.14 / n_rovers))),
+        "y": str(3*sin(i*(2*3.14 / n_rovers)))
     }
 
 launch.include = [gazebo_include] + quad_include + rover_include
@@ -149,7 +149,7 @@ for i in range(n_quads):
     IO_nodes_quads[i].ns = "quad" + str(i)
 
 
-IO_nodes_rovers += [EL.node(name=str("IO_ctrl_rover" + str(i)), pkg="msrpa_2020", type="IO_controller_rover") for i in range(n_rovers)]
+IO_nodes_rovers = [EL.node(name=str("IO_ctrl_rover" + str(i)), pkg="msrpa_2020", type="IO_controller_R1") for i in range(n_rovers)]
 
 for i in range(n_rovers):
     IO_nodes_rovers[i].args = "--rover_namespace rover" + str(i)
@@ -192,7 +192,9 @@ launch.node += [msrpa]
 
 box_node = EL.node(name="obstacle0", pkg="gazebo_ros", type="spawn_model")
 box_node.args = "-file $(find msrpa_2020)/models/unit_box/model.sdf"
-box_node.args += " -sdf -model obstacle0 -x 5.0 -y0.0 -z 4.0"
+box_node.args += " -sdf -model obstacle0 -x 0.0 -y 5.0 -z 0.0"
+
+launch.node += [box_node]
 
 
 
