@@ -46,6 +46,7 @@ launch_radius = 7
 
 formation_radius = 5
 
+noise_bool = True
 
 # Quad parameters
 umax_quad = 2
@@ -178,7 +179,7 @@ launch.node = IO_nodes_quads + IO_nodes_rovers
 
 msrpa = EL.node(name="MSRPA", pkg="msrpa_2020", type="msrpa")
 msrpa.output = "screen"
-msrpa.args = f"--n_quads {n_quads} --n_rovers {n_rovers} --input_Hz {input_Hz_msrpa} --eta {eta} --F {F}"
+msrpa.args = f"--n_quads {n_quads} --n_rovers {n_rovers} --input_Hz {input_Hz_msrpa} --eta {eta} --F {F} --noise"
 msrpa.ns = "MSRPA"
 
 if len(leader_list) > 0:

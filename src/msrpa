@@ -36,7 +36,21 @@ from collections import Counter # For efficiently counting message types
 # quad0, quad1, rover2, rover3
 
 class MSRPA_node:
-    def __init__(self, n_quads=0, n_rovers=0, leader_list=[], malicious_list=[], A=np.array([],dtype=int), input_Hz=10.0, eta=1, F=0, leader_message=SimpleMSRPA()):
+    def __init__(
+        self,
+        n_quads=0,
+        n_rovers=0,
+        leader_list=[],
+        malicious_list=[],
+        A=np.array([],dtype=int),
+        input_Hz=10.0,
+        eta=1,
+        F=0,
+        noise_bool=True,
+        noise_mean=0.0,
+        noise_variance=0.01,
+        leader_message=SimpleMSRPA()
+    ):
         self.n_quads = n_quads
         self.n_rovers = n_rovers
         self.n = n_quads + n_rovers
@@ -45,7 +59,6 @@ class MSRPA_node:
         self.A = A
         self.eta = eta
         self.F = F
-
         self.timestep = 0
 
         self.follower_list = [i for i in range(self.n) if i not in self.leader_list]
@@ -53,8 +66,6 @@ class MSRPA_node:
 
         self.broadcast_matrix = np.zeros(self.A.shape)
         self.broadcast_matrix[:,self.leader_list] = self.A[:,self.leader_list]
-        #print("\nBroadcast matrix:")
-        #print(self.broadcast_matrix)
 
         self.pubtopics = ["quad" + str(nq) for nq in range(n_quads)]
         self.pubtopics += ["rover" + str(n_quads + nr) for nr in range(n_rovers)]
@@ -65,15 +76,19 @@ class MSRPA_node:
         self.timer = rospy.Timer(rospy.Duration(1.0/input_Hz), self.MSRPA_callback)
         
         self.received_messages = [SimpleMSRPA() for i in range(self.n)]    # Preallocation. May or may not help.
-        #print("\nself.received_messages")
-        #print(self.received_messages)
 
         self.empty_msg = SimpleMSRPA() # For comparison purposes
 
-        # TODO : Fix the below
         self.MSRPA_list = [SimpleMSRPA() for i in range(self.n)]
-        for i in self.leader_list:
-            self.MSRPA_list[i] = leader_message
+
+        if noise_bool and leader_message != self.empty_msg:
+            for i in self.leader_list:
+                data = np.array(leader_message.data)
+                perturbed_data = data + np.sqrt(noise_variance)*np.random.randn(data.size) + noise_mean
+                self.MSRPA_list[i] = SimpleMSRPA(trajectory_type=leader_message.trajectory_type, data=perturbed_data)
+        else:
+            for i in self.leader_list:
+                self.MSRPA_list[i] = leader_message
 
         # List of malicious messages
         # These messages are the messages that the malicious agents use to calculate their physical control input
@@ -163,7 +178,7 @@ class MSRPA_node:
 
     
     def change_leader_message(self, msg):
-        variance = 1.0
+        variance = 0.01
         if msg.noise:
             data = np.array(msg.data)
             mean = msg.mean
@@ -238,6 +253,7 @@ if __name__ == "__main__":
     parser.add_argument('--leader_list', nargs='+', type=int, help="Comma-separated list of leader agents, as per MSRPA numbering scheme")
     parser.add_argument('--malicious_list', nargs='+', type=int, help="Comma-separated list of malicious agents, as per MSRPA numbering scheme")
     parser.add_argument('--input_Hz', type=float, help="Hz rate at which to run the MS-RPA algorithm")
+    parser.add_argument('--noise', action='store_true', help='Include noise in the leader signals or not')
     # parser.add_argument('--L', nargs='+', type=int, help="Laplacian matrix. Input as 1D array with rows appended together.")
     args = parser.parse_args(myargv)
 
@@ -266,6 +282,11 @@ if __name__ == "__main__":
     if args.input_Hz is not None:
         input_Hz = args.input_Hz
 
+    if args.noise:
+        noise_bool = True
+    else:
+        noise_bool = False
+
     leader_message = SimpleMSRPA()
     leader_message.trajectory_type = "circular"
     # t0, t1, R, theta0, w, cx, cy, cz
@@ -293,7 +314,8 @@ if __name__ == "__main__":
             eta=eta,
             F=F,
             A=A,
-            leader_message=leader_message
+            leader_message=leader_message,
+            noise_bool=noise_bool
        )
 
         rospy.spin()
