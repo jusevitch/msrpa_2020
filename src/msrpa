@@ -69,6 +69,7 @@ class MSRPA_node:
 
         self.pubtopics = ["quad" + str(nq) for nq in range(n_quads)]
         self.pubtopics += ["rover" + str(n_quads + nr) for nr in range(n_rovers)]
+        print("\n\n\npubtopics:\n{}\n\n\n".format(self.pubtopics))
         self.publist = [rospy.Publisher(topic, SimpleMSRPA, queue_size=1) for topic in self.pubtopics]
 
         self.leader_sub = rospy.Subscriber("leader_MSRPA", NoiseSimpleMSRPA, self.change_leader_message)
