@@ -449,9 +449,13 @@ if __name__ == '__main__':
 
     if args.kp is not None:
         kp = args.kp
+    else:
+        kp = 5
 
     if args.kd is not None:
         kd = args.kd
+    else:
+        kd = 1
 
     if args.input_Hz is not None:
         input_Hz = args.input_Hz
