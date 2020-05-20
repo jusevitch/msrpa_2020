@@ -40,10 +40,10 @@ from scipy.linalg import circulant
 #
 # The malicious list refers to the placement using this ordering.
 
-n_quads = 5
-n_rovers = 5
-leader_list = [0,1,2]
-malicious_list = [8]
+n_quads = 1
+n_rovers = 0
+leader_list = [0]
+malicious_list = []
 
 input_Hz_msrpa = 3
 eta = 10
@@ -54,6 +54,9 @@ n = n_quads + n_rovers
 k = 3
 
 noise_bool = False
+
+profile_bool = True
+
 
 # Quad parameters
 quad_launch_radius = 4
@@ -161,7 +164,11 @@ for i in range(n_quads):
     IO_nodes_quads[i].args += " --input_Hz " + str(input_Hz_quad)
     IO_nodes_quads[i].output = "screen"
     IO_nodes_quads[i].ns = "quad" + str(i)
-
+    if profile_bool:
+        # pprofile version
+        IO_nodes_quads[i].launch_prefix = "pprofile --format callgrind --out cachegrind.out.IO_ctrl_quad{}".format(str(i))
+        # cProfile version
+        # IO_nodes_quads[i].launch_prefix = "python -m cProfile -o IO_ctrl_quad{}.cprof".format(str(i))
 
 IO_nodes_rovers = [EL.node(name=str("IO_ctrl_rover" + str(i)), pkg="msrpa_2020", type="IO_controller_R1") for i in range(n_rovers)]
 
@@ -176,6 +183,8 @@ for i in range(n_rovers):
     IO_nodes_rovers[i].args += " --input_Hz " + str(input_Hz_rover)
     IO_nodes_rovers[i].output = "screen"
     IO_nodes_rovers[i].ns = "rover" + str(n_quads + i)
+    if profile_bool:
+        IO_nodes_rovers[i].launch_prefix="valgrind --tool=callgrind --callgrind-out-file='callgrind.{}.%p'".format("IO_ctrl_rover" + str(i))
 
 
 launch.node = IO_nodes_quads + IO_nodes_rovers
@@ -188,6 +197,9 @@ if noise_bool:
     msrpa.args += " --noise"
 
 msrpa.ns = "MSRPA"
+
+if profile_bool:
+    msrpa.launch_prefix = "valgrind --tool=callgrind --callgrind-out-file='callgrind.msrpa.%p'"
 
 if len(leader_list) > 0:
     leader_list_string = ' '.join(str(i) for i in leader_list)
