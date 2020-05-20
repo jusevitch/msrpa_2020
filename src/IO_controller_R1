@@ -20,7 +20,7 @@ import rospy
 import sys
 import osqp
 import numpy as np
-from numpy import cos, sin, arccos
+from math import cos, sin, acos
 from scipy.sparse import csc_matrix
 import tf.transformations as trans # For quaternion operations
 import argparse
@@ -335,7 +335,7 @@ def determine_theta(quaternion, tolerance=0.01):
     
     # Determine theta as angle between two_dim_vector and x-axis of global frame
     # If two_dim_vec is zero, return an error...TODO
-    abs_theta = arccos(two_dim_vec.dot(np.array([1,0]))/np.linalg.norm(two_dim_vec)) 
+    abs_theta = acos(two_dim_vec.dot(np.array([1,0]))/np.linalg.norm(two_dim_vec)) 
     if (two_dim_vec[1] >= 0):
         return abs_theta
     else:
