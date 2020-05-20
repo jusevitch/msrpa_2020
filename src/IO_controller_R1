@@ -70,7 +70,7 @@ class IO_controller_R1:
         rover_namespace = "rover0",
         R_factor = 0.5
     ):
-        self.state = np.zeros(3)
+        self.state = np.zeros(4)
         self.local_offset = local_offset 
         self.b = b  # Parameter for Siciliano input / output controller
         self.kp = kp
@@ -119,7 +119,8 @@ class IO_controller_R1:
                 state_index = currentObjectStates.name.index(self.rover_namespace) # Gets the index of agent state info
                 self.state[0] = currentObjectStates.pose[state_index].position.x
                 self.state[1] = currentObjectStates.pose[state_index].position.y
-                self.state[2] = determine_theta(currentObjectStates.pose[state_index].orientation)
+                self.state[2] = currentObjectStates.pose[state_index].position.z
+                self.state[3] = determine_theta(currentObjectStates.pose[state_index].orientation)
     
     
                 # Find the indices for all rovers, quads, and objects specifically labeled "obstacle"
@@ -148,15 +149,15 @@ class IO_controller_R1:
                     dp = np.zeros(2)
     
                 # Calculate the nominal controller
-                y1 = self.state[0] + self.b*cos(self.state[2])
-                y2 = self.state[1] + self.b*sin(self.state[2])
+                y1 = self.state[0] + self.b*cos(self.state[3])
+                y2 = self.state[1] + self.b*sin(self.state[3])
                 uhat = np.array([
                     self.kd*dp[0] + self.kp*(p[0] - y1),
                     self.kd*dp[1] + self.kp*(p[1] - y2)
                 ])
 
                 # Location of the b point for IO controller
-                b_state = self.state[0:2] + np.array([self.b*cos(self.state[2]), self.b*sin(self.state[2])])
+                b_state = self.state[0:3] + np.array([self.b*cos(self.state[3]), self.b*sin(self.state[3]), 0])
                 
                 
                 # TODO: This currently assumes everything has the same safety radius.
@@ -166,10 +167,10 @@ class IO_controller_R1:
     
     
                 # Infinity norm constraint matrix for untransformed input
-                Au_untr = np.array([[cos(self.state[2]), sin(self.state[2])],
-                                    [-cos(self.state[2]), -sin(self.state[2])],
-                                    [-sin(self.state[2])/self.b, cos(self.state[2])/self.b],
-                                    [sin(self.state[2])/self.b, -cos(self.state[2])/self.b]])
+                Au_untr = np.array([[cos(self.state[3]), sin(self.state[3])],
+                                    [-cos(self.state[3]), -sin(self.state[3])],
+                                    [-sin(self.state[3])/self.b, cos(self.state[3])/self.b],
+                                    [sin(self.state[3])/self.b, -cos(self.state[3])/self.b]])
     
                 if len(reduced_indices) > 0:
                     A = np.zeros((len(reduced_indices),2))
@@ -177,11 +178,14 @@ class IO_controller_R1:
     
                     for i in range(len(reduced_indices)):
                         idx = reduced_indices[i]
-                        obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y])
+                        obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y, currentObjectStates.pose[idx].position.z])
     
                         # A[i,:] = dhdx(state,obstacle_state).dot(g(state))
+
+                        # L_g h(x) = 2*(x - xo)^T [[1,0],[0,1],[0,0]] [[u_1],[u_2]]
+                        # The above formulation takes into account the 3D position of quadrotors
                         A[i,:] = -1.0*(2*np.array([b_state[0] - obstacle_state[0], b_state[1] - obstacle_state[1]]))
-                        bvec[i] = self.delta*((np.linalg.norm(b_state[0:2] - obstacle_state[0:2], 2))**2 - (max(self.R,Ro))**2)
+                        bvec[i] = self.delta*((np.linalg.norm(b_state[0:3] - obstacle_state[0:3], 2))**2 - (max(self.R,Ro))**2)
     
                     # Add the infinity norm input constraints
                     # A = np.append(A,Au,axis=0) # for untransformed inputs
@@ -216,7 +220,7 @@ class IO_controller_R1:
     
                 # Transform by the T matrix
                 # Only use this if you use the nominal_ctrl_untransformed function
-                Tmatrix = self.T(self.state[2])
+                Tmatrix = np.array([[cos(self.state[3]), sin(self.state[3])],[-sin(self.state[3])/self.b, cos(self.state[3])/self.b]])
                 u = Tmatrix.dot(u)
                 
                 self.vel_msg.linear.x = u[0]
@@ -236,14 +240,14 @@ class IO_controller_R1:
     def nominal_ctrl(self, point, point_deriv):
 
         # Assumes that all inputs are numpy arrays
-        y1 = self.state[0] + self.self.b*cos(self.state[2])
-        y2 = self.state[1] + self.self.b*sin(self.state[2])
+        y1 = self.state[0] + self.self.b*cos(self.state[3])
+        y2 = self.state[1] + self.self.b*sin(self.state[3])
     
         u = np.zeros(2)
         u[0] = self.kd*point_deriv[0] + self.kp*(point[0] - y1)
         u[1] = self.kd*point_deriv[1] + self.kp*(point[1] - y2)
     
-        Tmatrix = T(self.state[2])
+        Tmatrix = T(self.state[3])
         return Tmatrix.dot(u)
 
 
@@ -253,8 +257,8 @@ class IO_controller_R1:
         # See Siciliano 2009, _Robotics_, Ch. 11, eq. 11.74 for details
     
         # Assumes that all inputs are numpy arrays
-        y1 = self.state[0] + self.b*cos(self.state[2])
-        y2 = self.state[1] + self.b*sin(self.state[2])
+        y1 = self.state[0] + self.b*cos(self.state[3])
+        y2 = self.state[1] + self.b*sin(self.state[3])
     
         u = np.zeros(2)
         u[0] = self.kd*point_deriv[0] + self.kp*(point[0] - y1)
