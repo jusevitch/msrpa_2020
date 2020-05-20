@@ -181,10 +181,12 @@ class IO_controller_quad:
                         print("Variable 'trajectory_data' is None.")
     
     
-    
-                uhat = self.nominal_ctrl(self.state, p, dp)
-                # print("\nuhat untransformed:")
-                # print(uhat)
+                # Calculate nominal control
+                uhat = self.kd*dp + self.kp*(p - self.state)
+                norm_uhat = np.linalg.norm(uhat,np.inf)
+                if norm_uhat > self.umax:
+                    uhat = self.umax * (uhat / norm_uhat)                    
+
                 
                 # Minimally modify nominal controller with CBF QP
                 # TODO: This currently assumes everything has the same safety radius.
@@ -201,8 +203,8 @@ class IO_controller_quad:
                         idx = reduced_indices[i]
                         obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y, currentObjectStates.pose[idx].position.z])
     
-                        A[i,:] = -1.0*dhdx(self.state,obstacle_state)
-                        bvec[i] = self.delta*h(self.state,obstacle_state,self.R,Ro)
+                        A[i,:] = -1.0*(2*np.array([self.state[0]-obstacle_state[0], self.state[1] - obstacle_state[1], self.state[2] - obstacle_state[2]]))
+                        bvec[i] = self.delta*((np.linalg.norm(self.state[0:3] - obstacle_state[0:3], 2))**2 - (max(self.R,Ro))**2)
     
                     # Add the infinity norm input constraints
                     # A = np.append(A,Au,axis=0) # for untransformed inputs

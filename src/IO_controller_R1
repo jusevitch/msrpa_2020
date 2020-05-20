@@ -147,9 +147,14 @@ class IO_controller_R1:
                     p = self.state[0:2]
                     dp = np.zeros(2)
     
-                
-                uhat = self.nominal_ctrl_untransformed(p, dp)
-    
+                # Calculate the nominal controller
+                y1 = self.state[0] + self.b*cos(self.state[2])
+                y2 = self.state[1] + self.b*sin(self.state[2])
+                uhat = np.array([
+                    self.kd*dp[0] + self.kp*(p[0] - y1),
+                    self.kd*dp[1] + self.kp*(p[1] - y2)
+                ])
+
                 # Location of the b point for IO controller
                 b_state = self.state[0:2] + np.array([self.b*cos(self.state[2]), self.b*sin(self.state[2])])
                 
@@ -175,8 +180,8 @@ class IO_controller_R1:
                         obstacle_state = np.array([currentObjectStates.pose[idx].position.x, currentObjectStates.pose[idx].position.y])
     
                         # A[i,:] = dhdx(state,obstacle_state).dot(g(state))
-                        A[i,:] = -1.0*dhdx_single_int(b_state,obstacle_state)
-                        bvec[i] = self.delta*h(b_state,obstacle_state,self.R,Ro)
+                        A[i,:] = -1.0*(2*np.array([b_state[0] - obstacle_state[0], b_state[1] - obstacle_state[1]]))
+                        bvec[i] = self.delta*((np.linalg.norm(b_state[0:2] - obstacle_state[0:2], 2))**2 - (max(self.R,Ro))**2)
     
                     # Add the infinity norm input constraints
                     # A = np.append(A,Au,axis=0) # for untransformed inputs
