@@ -25,6 +25,7 @@ from scipy.sparse import csc_matrix
 import tf.transformations as trans # For quaternion operations
 import argparse
 from copy import deepcopy
+from time import clock
 
 import trajectory
 
