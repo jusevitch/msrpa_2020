@@ -107,7 +107,7 @@ class MSRPA_node:
 
 
    
-    def MSRPA_callback(self, leader_messages):
+    def MSRPA_callback(self, timer):
         # Do the main callback function
         
         # Reset at intervals of eta

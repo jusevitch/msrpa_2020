@@ -4,6 +4,8 @@ project(msrpa_2020)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
+#set(IGN_MATH_VER 4)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -13,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   geometry_msgs
   gazebo_msgs
+  #ignition-math${IGN_MATH_VER}
 )
 
 ## System dependencies are found with CMake's conventions
@@ -58,8 +61,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate services in the 'srv' folder
 # add_service_files(
 #   FILES
-#   Service1.srv
-#   Service2.srv
+#   Iterate.srv
 # )
 
 ## Generate actions in the 'action' folder
@@ -117,10 +119,16 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-)
+# include_directories(
+# # include
+#   ${catkin_INCLUDE_DIRS}
+#   /usr/include/gazebo-9
+#   /usr/include/ignition/math4/ignition/math
+#   /usr/include/ignition/math4
+#   /usr/include/ignition/math4/ignition
+#   /usr/include/sdformat-6.0
+#   /usr/include/ignition/msgs1
+# )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -137,6 +145,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/msrpa_2020_node.cpp)
+#add_executable(${PROJECT_NAME}_lockstep_node src/lockstep.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -146,12 +155,12 @@ include_directories(
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_dependencies(${PROJECT_NAME}_lockstep_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+#target_link_libraries(${PROJECT_NAME}_lockstep_node
+#  ${catkin_LIBRARIES}
+#)
 
 #############
 ## Install ##
